@@ -332,6 +332,13 @@ nav.pnav .sellbtn{background:var(--amber);box-shadow:0 6px 22px rgba(242,179,61,
 .gallery .add{aspect-ratio:1;border:1.5px dashed var(--line);border-radius:10px;display:flex;
   align-items:center;justify-content:center;color:var(--mut);font-size:26px;position:relative}
 .gallery .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.pbanner{height:88px;border-radius:0 0 16px 16px;margin:0 -16px 0;position:relative;
+  box-shadow:inset 0 -40px 40px -20px var(--bg)}
+.cardgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ccard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);cursor:pointer;text-align:left}
+.ccard.on{border-color:var(--amber);box-shadow:0 0 0 2px rgba(242,179,61,.25)}
+.ccprev{display:block;height:46px}
+.ccard .ename{display:block;padding:7px 10px;font-size:11px;font-weight:800;letter-spacing:.04em}
 </style>
 
 <div id="app"></div>
@@ -440,15 +447,15 @@ function seed(){return{
       verified:true,founder:true,rating:5,sales:0,joined:'2026-07',master:true,prestige:10,xp:99999,completed:{},pending:[]},
     marv:{id:'marv',first:'Marcus',last:'Reyes',nick:'BoostedMarv',email:'m@x.com',verified:true,rating:4.8,sales:14,joined:'2026-06',prestige:1,xp:4200,completed:{},pending:[],
       races:{wins:23},bio:'Single turbo everything. If it don\'t boost it don\'t move.',clan:'c1',
-      carBuild:{brand:'Mazda',model:'RX-7 FD',year:'1993',paint:'#EDEFF2',rim:'Volk TE37',rimC:'#B08D57',stance:'Slammed',drive:'RWD',hp:'505',mods:'BorgWarner S366\nHaltech Elite 1500\nFortune Auto 500 coilovers'},
+      carBuild:{id:'v0',disc:'Drift',brand:'Mazda',model:'RX-7 FD',year:'1993',paint:'#EDEFF2',rim:'Volk TE37',rimC:'#B08D57',stance:'Slammed',drive:'RWD',hp:'505',mods:'BorgWarner S366\nHaltech Elite 1500\nFortune Auto 500 coilovers'},
       loc:{x:62,y:28,visible:true,area:'North lot'}},
     lena:{id:'lena',first:'Lena',last:'Ortiz',nick:'ClutchQueen',email:'l@x.com',verified:true,rating:4.9,sales:22,joined:'2026-06',prestige:2,xp:7600,completed:{},pending:[],
       races:{wins:41},bio:'Six-speed swaps and clean tunes.',clan:'c1',
-      carBuild:{brand:'Toyota',model:'Supra',year:'1998',paint:'#111418',rim:'Work Meister S1',rimC:'#D4AF37',stance:'Lowered',drive:'RWD',hp:'720',mods:'Rebuilt 2JZ\nPrecision 6870\nGetrag 6-speed'},
+      carBuild:{id:'v0',disc:'Time Attack',brand:'Toyota',model:'Supra',year:'1998',paint:'#111418',rim:'Work Meister S1',rimC:'#D4AF37',stance:'Lowered',drive:'RWD',hp:'720',mods:'Rebuilt 2JZ\nPrecision 6870\nGetrag 6-speed'},
       loc:{x:40,y:55,visible:true,area:'Industrial row'}},
     dan:{id:'dan',first:'Danny',last:'Fuentes',nick:'TwoStrokeDan',email:'d@x.com',verified:false,rating:4.2,sales:3,joined:'2026-07',prestige:0,xp:900,completed:{},pending:[],
       races:{wins:6},bio:'Bikes and quads. Two strokes forever.',clan:null,
-      carBuild:{brand:'Honda Moto',model:'CBR600RR',year:'2006',paint:'#E8362D',rim:'',rimC:'#1A1C20',stance:'Stock',drive:'RWD',hp:'105',mods:'Yoshimura full exhaust\nQ5 tires'},
+      carBuild:{id:'v0',disc:'Circuit',brand:'Honda Moto',model:'CBR600RR',year:'2006',paint:'#E8362D',rim:'',rimC:'#1A1C20',stance:'Stock',drive:'RWD',hp:'105',mods:'Yoshimura full exhaust\nQ5 tires'},
       loc:{x:78,y:70,visible:true,area:'East side'}}
   },
   listings:[
@@ -515,6 +522,10 @@ function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch
     u.xp=u.xp||0;u.prestige=u.prestige||0;u.completed=u.completed||{};u.pending=u.pending||[];
     u.races=u.races||{wins:0};u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
     u.unlockedEmblems=u.unlockedEmblems||[];u.clan=u.clan||null;u.bio=u.bio||'';
+    u.eqCard=u.eqCard||null;
+    if(!u.garage)u.garage=u.carBuild?[Object.assign({id:'v0',disc:'Street Build'},u.carBuild)]:[];
+    u.garage.forEach((g,i)=>{if(!g.id)g.id='v'+i;if(!g.disc)g.disc='Street Build'});
+    u.carBuild=u.garage[0]||null;
     if(!u.profileNo)u.profileNo='PL-'+String(S.pno++).padStart(4,'0');
     if(!u.loc)u.loc={x:15+Math.random()*70,y:15+Math.random()*70,visible:false,area:'—'};});
   if(S.users.trippzy){const t=S.users.trippzy;t.master=true;t.profileNo='PL-0001';
@@ -997,6 +1008,20 @@ const PAINTS=[['#E8362D','Redline Red'],['#111418','Midnight'],['#EDEFF2','Pearl
 const DRIVE=['FWD','RWD','AWD'];
 const STANCE=['Stock','Lowered','Slammed','Lifted'];
 const RACE_MILES=[[1,'First Blood',150],[10,'Ten Deep',400],[50,'Half-Ton Hitter',900],[100,'Century Club',1500],[500,'Five Hundred',3500],[1000,'Thousand Cuts',6000]];
+const DISCIPLINES=['Street Build','Circuit','Rally','Drift','Drag','Time Attack','Stance','Off-Road 4x4','Overland','Dunes / Sand','Show Car','Stunt','Motocross','Freeride','Standup Ski'];
+const XP_PER_VEHICLE=150;
+const CARDS=[
+ {id:'asphalt',name:'Asphalt',css:'linear-gradient(135deg,#1a1d23,#0b0d10)',min:1},
+ {id:'redline',name:'Redline',css:'linear-gradient(120deg,#e8362d,#7c1d1d 70%)',min:3},
+ {id:'nitrous',name:'Nitrous',css:'linear-gradient(120deg,#2c6fb5,#0e2a4a 70%)',min:8},
+ {id:'slime',name:'Slime',css:'linear-gradient(120deg,#39b26b,#0d3a24 70%)',min:12},
+ {id:'apex',name:'Apex',css:'linear-gradient(120deg,#f2b33d,#8a5a12 70%)',min:16},
+ {id:'plum',name:'Plum Crazy',css:'linear-gradient(120deg,#6b4ba8,#2a1b4a 70%)',min:20},
+ {id:'carbon',name:'Carbon',css:'repeating-linear-gradient(45deg,#181b21 0 7px,#0b0d10 7px 14px)',min:24},
+ {id:'checkers',name:'Checkered Flag',css:'repeating-conic-gradient(#0f0f0f 0 25%,#242424 0 50%) 0/26px 26px',min:28},
+ {id:'gold',name:'Champion Gold',css:'linear-gradient(120deg,#ffd34d,#8a6d1f 75%)',min:30},
+ {id:'master',name:'Master Crown',css:'linear-gradient(120deg,#ffd34d,#e8362d)',master:1}
+];
 
 /* ---- gate ---- */
 function enterPrestige(){ if(unlocked){world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0)} else go('gate'); }
@@ -1038,27 +1063,43 @@ function mapIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 
 /* ---- titles & emblems ---- */
 function brandOf(name){return CARBRANDS.find(x=>x.b===name)}
+function garageBrands(u){return [...new Set((u.garage||[]).map(g=>g.brand))].map(brandOf).filter(Boolean)}
 function unlockedTitles(u){
   const t=[titleOf(u.master?MAXLVL:lvlOf(u.xp||0).l)];
-  if(u.master)t.push('Master of the Grid');
+  if(u.master){ // Master: everything unlocked
+    ['Master of the Grid','The Founder','Grid King','Podium Finisher','Track Rat'].forEach(x=>t.push(x));
+    CARBRANDS.forEach(b=>t.push(b.title));
+    return [...new Set(t)];
+  }
   if(u.founder)t.push('The Founder');
-  if(u.carBuild&&brandOf(u.carBuild.brand))t.push(brandOf(u.carBuild.brand).title);
+  garageBrands(u).forEach(b=>t.push(b.title));
   (u.unlockedTitles||[]).forEach(x=>t.push(x));
   return [...new Set(t)];
 }
 function unlockedEmblems(u){
   const e=[];
-  if(u.master)e.push(['CROWN','#FFD34D']);
-  const L=u.master?MAXLVL:lvlOf(u.xp||0).l;
+  if(u.master){ // Master: every emblem in the game
+    e.push(['CROWN','#FFD34D'],['APEX','#FF5A4E'],['TUNED','#3DD68C'],['ROOKIE','#8B94A6']);
+    CARBRANDS.forEach(b=>b.emblems.forEach(nm=>e.push([nm,b.c])));
+    const seen={};return e.filter(([n])=>seen[n]?false:(seen[n]=1));
+  }
+  const L=lvlOf(u.xp||0).l;
   if(L>=1)e.push(['ROOKIE','#8B94A6']);
   if(L>=10)e.push(['TUNED','#3DD68C']);
   if(L>=20)e.push(['APEX','#FF5A4E']);
-  if(u.carBuild&&brandOf(u.carBuild.brand))brandOf(u.carBuild.brand).emblems.forEach(nm=>e.push([nm,brandOf(u.carBuild.brand).c]));
+  garageBrands(u).forEach(b=>b.emblems.forEach(nm=>e.push([nm,b.c])));
   (u.unlockedEmblems||[]).forEach(x=>e.push(x));
   const seen={};return e.filter(([n])=>seen[n]?false:(seen[n]=1));
 }
+function unlockedCards(u){
+  const L=u.master?MAXLVL:lvlOf(u.xp||0).l;
+  return CARDS.filter(c=>u.master||(c.min&&L>=c.min));
+}
+function cardCss(u){const id=u.eqCard;const c=CARDS.find(x=>x.id===id)||unlockedCards(u).slice(-1)[0]||CARDS[0];return c.css}
+function equipCard(id){S.users[S.me].eqCard=id;save();render();toast('Calling card equipped.')}
 function emblemArt(name,color,size){
-  const s=size||38,short=name.length>4?name.replace(/[^A-Z0-9]/gi,'').slice(0,4):name;
+  const OV={CROWN:'♛',ROOKIE:'RKY',TUNED:'TUN'};
+  const s=size||38,short=OV[name]||(name.length>4?name.replace(/[^A-Z0-9]/gi,'').slice(0,4):name);
   return '<span class="emblemart" style="width:'+s+'px;height:'+s+'px;font-size:'+(short.length>3?9:12)+'px;'+
   'background:linear-gradient(135deg,'+color+','+shade(color)+')">'+esc(short.toUpperCase())+'</span>';
 }
@@ -1070,20 +1111,27 @@ function pHome(){
   const u=S.users[S.me];
   const eqTitle=u.eqTitle||unlockedTitles(u)[0];
   const eqEmb=u.eqEmblem||unlockedEmblems(u)[0];
-  return '<div style="display:flex;gap:14px;align-items:center;margin:12px 0 6px">'+
-  '<div class="ava" style="width:66px;height:66px;font-size:24px;flex:0 0 66px;position:relative">'+esc(u.nick[0])+
-    (eqEmb?'<span style="position:absolute;bottom:-4px;right:-6px">'+emblemArt(eqEmb[0],eqEmb[1],26)+'</span>':'')+'</div>'+
-  '<div style="min-width:0"><h1 class="disp" style="font-size:23px">'+esc(u.nick)+'</h1>'+
-  '<p class="hint mono">'+esc(u.profileNo)+' · '+esc(u.first)+' '+esc(u.last)+'</p>'+
-  '<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">'+
+  const gar=u.garage||[];
+  return '<div class="pbanner" style="background:'+cardCss(u)+'"></div>'+
+  '<div style="display:flex;gap:14px;align-items:center;margin:-30px 0 6px;position:relative;z-index:2">'+
+  '<div class="ava" style="width:70px;height:70px;font-size:26px;flex:0 0 70px;position:relative;border:3px solid var(--bg)">'+esc(u.nick[0])+
+    (eqEmb?'<span style="position:absolute;bottom:-4px;right:-6px">'+emblemArt(eqEmb[0],eqEmb[1],28)+'</span>':'')+'</div>'+
+  '<div style="min-width:0;padding-top:26px"><h1 class="disp" style="font-size:23px">'+esc(u.nick)+'</h1>'+
+  '<p class="hint mono">'+esc(u.profileNo)+' · '+esc(u.first)+' '+esc(u.last)+'</p></div></div>'+
+  '<div style="display:flex;gap:6px;margin:4px 0;flex-wrap:wrap">'+
   (u.master?'<span class="badge masterbadge">👑 MASTER</span>':'')+
   (u.founder?'<span class="badge founder">FOUNDER</span>':'')+
-  (u.clan?'<span class="badge cat">['+esc((S.clans.find(c=>c.id===u.clan)||{}).tag||'')+']</span>':'')+'</div></div></div>'+
+  (u.clan?'<span class="badge cat">['+esc((S.clans.find(c=>c.id===u.clan)||{}).tag||'')+']</span>':'')+'</div>'+
   (eqTitle?'<div class="titlebadge" style="margin:6px 0 2px">'+(eqEmb?emblemArt(eqEmb[0],eqEmb[1],22):'')+' '+esc(eqTitle)+'</div>':'')+
   (u.bio?'<p style="color:#C6CDD9;font-size:14px;margin:10px 0">'+esc(u.bio)+'</p>':'')+
   rankCard(u,true)+
-  '<div class="shead"><h2>My build</h2><button class="btn sm ghost" onclick="setPTab(\'build\')">'+(u.carBuild?'Edit build':'+ Build car')+'</button></div>'+
-  (u.carBuild?buildCard(u.carBuild):'<div class="card empty">No build yet.<br>Spec your ride exactly how it sits.</div>')+
+  '<div class="shead"><h2><s>My garage</s> — '+gar.length+' '+(gar.length===1?'vehicle':'vehicles')+'</h2>'+
+    '<button class="btn sm amber" onclick="addVehicle()">+ Add vehicle</button></div>'+
+  (gar.length?gar.map((b,i)=>'<div style="margin-bottom:14px">'+buildCard(b)+
+    '<button class="btn sm line" style="margin-top:8px" onclick="editVehicle('+i+')">Edit this build</button>'+
+    (gar.length>1?' <button class="btn sm line" style="margin-top:8px" onclick="rmVehicle('+i+')">Remove</button>':'')+'</div>').join('')
+    :'<div class="card empty">No vehicles yet.<br>Add your whole fleet — every car, bike, quad and ski.</div>')+
+  '<div class="launchnote">Every vehicle you add earns <b>+'+XP_PER_VEHICLE+' XP</b>. Stack the whole collection.</div>'+
   (u.carPhotos&&u.carPhotos.length?'<div class="shead"><h2>Real shots</h2></div><div class="gallery">'+
     u.carPhotos.map(p=>'<img src="'+p+'" alt="my car">').join('')+'</div>':'')+
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">'+
@@ -1092,6 +1140,9 @@ function pHome(){
   (u.master?'<button class="btn amber" style="margin-top:10px" onclick="setPTab(\'admin\')">👑 Master control panel</button>':'')+
   '<button class="btn line" style="margin-top:10px" onclick="exitPrestige()">Back to marketplace</button>';
 }
+function addVehicle(){CB=null;CBI=-1;setPTab('build')}
+function editVehicle(i){CB=Object.assign({},S.users[S.me].garage[i]);CBI=i;setPTab('build')}
+function rmVehicle(i){const u=S.users[S.me];u.garage.splice(i,1);u.carBuild=u.garage[0]||null;save();render();toast('Vehicle removed.')}
 
 /* ---- car side-profile SVG ---- */
 function carSVG(b){
@@ -1132,7 +1183,9 @@ function spokes(cx,cy,c){let s='';for(let i=0;i<6;i++){const a=i*Math.PI/3;
   return s+'<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+c+'"/>'}
 function buildCard(b){
   return '<div class="card buildcard"><div class="buildstage"><div class="floor"></div><div class="grid-lines"></div>'+
-  '<div class="buildhud">'+esc(b.year||'')+' <b>'+esc(b.brand)+' '+esc(b.model)+'</b></div>'+carSVG(b)+'</div>'+
+  '<div class="buildhud">'+esc(b.year||'')+' <b>'+esc(b.brand)+' '+esc(b.model)+'</b></div>'+
+  (b.disc?'<span class="badge f" style="position:absolute;top:10px;right:10px;z-index:3">'+esc(b.disc).toUpperCase()+'</span>':'')+
+  carSVG(b)+'</div>'+
   '<div class="specgrid">'+
   '<div><span>Power</span><b>'+esc(b.hp||'—')+' hp</b></div>'+
   '<div><span>Drivetrain</span><b>'+esc(b.drive||'—')+'</b></div>'+
@@ -1143,16 +1196,18 @@ function buildCard(b){
 }
 
 /* ---- car builder ---- */
-let CB=null;
+let CB=null,CBI=-1;
 function pBuild(){
   const u=S.users[S.me];
-  if(!CB)CB=Object.assign({brand:'Honda',model:'Civic Type R',year:'2024',paint:PAINTS[0][0],rim:RIMS[0],rimC:RIMCOLORS[0][0],stance:'Lowered',drive:'FWD',hp:'306',mods:''},u.carBuild||{});
+  if(!CB)CB=Object.assign({disc:'Street Build',brand:'Honda',model:'Civic Type R',year:'2024',paint:PAINTS[0][0],rim:RIMS[0],rimC:RIMCOLORS[0][0],stance:'Lowered',drive:'FWD',hp:'306',mods:''});
   const br=brandOf(CB.brand)||CARBRANDS[0];
   return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
-  '<h1 class="disp" style="font-size:24px;margin:4px 0 8px">Build your ride</h1>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 8px">'+(CBI>=0?'Edit build':'Add a vehicle')+'</h1>'+
   '<p class="hint" style="margin-bottom:12px">Not a photo — spec it exactly like it sits in your driveway. Side profile updates live.</p>'+
   buildCard(CB)+
-  '<div class="field" style="margin-top:16px"><label>Make</label><div class="pickrow">'+
+  '<div class="field" style="margin-top:16px"><label>Build type / discipline</label><div class="pickrow">'+
+  DISCIPLINES.map(d=>'<button class="pick '+(CB.disc===d?'on':'')+'" onclick="cbSet(\'disc\',\''+d.replace(/'/g,"\\'")+'\')">'+esc(d)+'</button>').join('')+'</div></div>'+
+  '<div class="field"><label>Make</label><div class="pickrow">'+
   CARBRANDS.map(x=>'<button class="pick '+(CB.brand===x.b?'on':'')+'" onclick="cbSet(\'brand\',\''+x.b+'\')">'+esc(x.b)+'</button>').join('')+'</div></div>'+
   '<div class="field"><label>Model</label><div class="pickrow">'+
   br.models.map(m=>'<button class="pick '+(CB.model===m?'on':'')+'" onclick="cbSet(\'model\',\''+esc(m)+'\')">'+esc(m)+'</button>').join('')+'</div></div>'+
@@ -1173,13 +1228,19 @@ function pBuild(){
 }
 function cbSet(k,v){CB[k]=v; if(k==='brand'){const b=brandOf(v);CB.model=b.models[0];} render();}
 function saveBuild(){
-  const u=S.users[S.me];const first=!u.carBuild;u.carBuild=Object.assign({},CB);
+  const u=S.users[S.me];u.garage=u.garage||[];
+  const isNew=CBI<0;const name=CB2name(CB);
   const b=brandOf(CB.brand);
-  if(b){if(!u.unlockedTitles.includes(b.title))u.unlockedTitles.push(b.title);
+  if(isNew){CB.id='v'+Date.now();u.garage.push(Object.assign({},CB));
+    if(u.garage.length===1&&!u.master)award('first_build');
+    if(!u.master){u.xp=(u.xp||0)+XP_PER_VEHICLE;}
+  } else {u.garage[CBI]=Object.assign({},CB);}
+  u.carBuild=u.garage[0]||null;
+  if(b&&!u.master){if(!u.unlockedTitles.includes(b.title))u.unlockedTitles.push(b.title);
     b.emblems.forEach(nm=>{if(!u.unlockedEmblems.some(e=>e[0]===nm))u.unlockedEmblems.push([nm,b.c])});}
-  save();CB=null;
-  if(first&&!u.master)award('first_build');
-  setPTab('home');toast('Build saved — '+esc(CB2name(u.carBuild))+'. Unlocked: '+esc(b?b.title:'')+' title + emblems ★');
+  save();CB=null;CBI=-1;
+  setPTab('home');
+  toast(isNew?('Added '+esc(name)+' (+'+(u.master?0:XP_PER_VEHICLE)+' XP)'+(b&&!u.master?' · unlocked '+esc(b.title):'')):'Build updated.');
 }
 function CB2name(b){return (b.year?b.year+' ':'')+b.brand+' '+b.model}
 
@@ -1195,6 +1256,10 @@ function pEdit(){
   unlockedEmblems(u).map(([n,c])=>{const on=(u.eqEmblem||unlockedEmblems(u)[0]||[])[0]===n;
     return '<button class="emb '+(on?'on':'')+'" onclick="equipEmblem(\''+esc(n).replace(/'/g,"\\'")+'\',\''+c+'\')">'+emblemArt(n,c,34)+'<span class="ename">'+esc(n)+'</span></button>'}).join('')+'</div>'+
   '<p class="hint" style="margin:6px 0">Unlock more emblems by building cars and ranking up.</p>'+
+  '<div class="shead"><h2>Calling card</h2></div><div class="cardgrid">'+
+  unlockedCards(u).map(c=>{const on=(u.eqCard||unlockedCards(u).slice(-1)[0].id)===c.id;
+    return '<button class="ccard '+(on?'on':'')+'" onclick="equipCard(\''+c.id+'\')"><span class="ccprev" style="background:'+c.css+'"></span><span class="ename">'+esc(c.name)+'</span></button>'}).join('')+'</div>'+
+  '<p class="hint" style="margin:6px 0">Calling cards unlock as you level up'+(u.master?' — as Master, you have them all.':'.')+'</p>'+
   '<div class="shead"><h2>Car photos</h2></div><div class="gallery">'+
   (u.carPhotos||[]).map((p,i)=>'<img src="'+p+'" alt="car" onclick="rmPhoto('+i+')" title="tap to remove">').join('')+
   '<label class="add">+<input type="file" accept="image/*" onchange="addPhoto(this)"></label></div>'+
