@@ -954,9 +954,10 @@ function newEvent(){
         day=$('#e_day').value.trim(),ven=$('#e_venue').value.trim();
   if(!t||!mo||!day||!ven)return toast('Name, date, and venue are all required.');
   if(!$('#e_legal').checked)return toast('Confirm the venue is sanctioned first.');
-  S.events.unshift(E('e'+Date.now(),S.me,$('#e_type').value,t,mo+' '+day,mo,day,ven,$('#e_desc').value.trim(),[S.me],
-    {fee:+($('#e_fee').value||0),raceFee:+($('#e_racefee').value||0),purse:+($('#e_purse').value||0),trophy:$('#e_trophy').value.trim()}));
-  save();award('host');setTab('events');toast('Event posted. Spread the word 📣');
+  const ev=E('e'+Date.now(),S.me,$('#e_type').value,t,mo+' '+day,mo,day,ven,$('#e_desc').value.trim(),[S.me],
+    {fee:+($('#e_fee').value||0),raceFee:+($('#e_racefee').value||0),purse:+($('#e_purse').value||0),trophy:$('#e_trophy').value.trim()});
+  S.events.unshift(ev);save();if(CLOUD)cloudPublishEvent(ev);
+  award('host');setTab('events');toast('Event posted. Spread the word 📣');
 }
 
 /* =================== CHAT =================== */
@@ -1919,6 +1920,10 @@ async function cloudPublishListing(l){
   if(!CLOUD)return;
   try{await sb.from('listings').insert({seller:S.me,category:l.cat,title:l.title,model:l.model,price:l.price,
     location:l.loc,miles:l.miles,title_status:l.titleStatus,vin:l.vin,description:l.desc,data:l});}catch(e){toast('Cloud save failed — saved locally.')}
+}
+async function cloudPublishEvent(ev){
+  if(!CLOUD)return;
+  try{await sb.from('events').insert({host:S.me,type:ev.type,title:ev.title,venue:ev.venue,description:ev.desc,sanctioned:true,data:ev});}catch(e){}
 }
 async function cloudUpload(file){
   if(!CLOUD)return null;
