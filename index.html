@@ -422,20 +422,13 @@ function award(mid){
     else toast('+'+m.xp+' XP — '+m.t);
   },700);
 }
-function submitProof(mid){
-  const u=S.users[S.me];u.pending=u.pending||[];
-  if(u.pending.includes(mid))return;
-  u.pending.push(mid);save();render();
-  toast('Proof submitted — the crew will review it.');
-}
 function prestigeUp(){
   const u=S.users[S.me];
   const {l}=lvlOf(u.xp||0);
-  if(l<MAXLVL)return;
-  if((u.prestige||0)>=10){u.master=true;save();render();
-    return toast('MASTER PRESTIGE. The grid bows. 👑');}
+  if(l<MAXLVL||u.master)return;
+  if((u.prestige||0)>=10){return toast('Prestige 10 — max rank. Only the founder holds Master. 👑');}
   u.prestige=(u.prestige||0)+1;u.xp=0;save();render();
-  toast('PRESTIGE '+u.prestige+' — '+PNAMES[u.prestige]+'. Back to Rookie, legend intact.');
+  toast('PRESTIGE '+u.prestige+' — '+PNAMES[u.prestige]+'. New name color unlocked!');
 }
 
 let S=null, view={name:'auth-welcome'}, tab='market', W=null, pend=null;
@@ -522,7 +515,7 @@ function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch
     u.xp=u.xp||0;u.prestige=u.prestige||0;u.completed=u.completed||{};u.pending=u.pending||[];
     u.races=u.races||{wins:0};u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
     u.unlockedEmblems=u.unlockedEmblems||[];u.clan=u.clan||null;u.bio=u.bio||'';
-    u.eqCard=u.eqCard||null;
+    u.eqCard=u.eqCard||null;u.eqName=u.eqName||null;
     if(!u.garage)u.garage=u.carBuild?[Object.assign({id:'v0',disc:'Street Build'},u.carBuild)]:[];
     u.garage.forEach((g,i)=>{if(!g.id)g.id='v'+i;if(!g.disc)g.disc='Street Build'});
     u.carBuild=u.garage[0]||null;
@@ -664,7 +657,7 @@ function cardHTML(l){
   return '<button class="lcard" onclick="go(\'listing\',\''+l.id+'\')"><div class="ph">'+art(l)+
   (l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':'')+'</div>'+
   '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
-  '<div class="meta">'+esc(l.loc)+(u.verified?' · <span style="color:var(--green)">✓ '+esc(u.nick)+'</span>':' · '+esc(u.nick))+'</div></div></button>';
+  '<div class="meta">'+esc(l.loc)+' · '+(u.verified?'<span style="color:var(--green)">✓</span> ':'')+nn(u)+'</div></div></button>';
 }
 
 /* =================== LISTING DETAIL =================== */
@@ -692,7 +685,7 @@ function vListing(id){
   '<div class="shead"><h2>Seller\'s words</h2></div><p style="color:#C6CDD9;font-size:14.5px;max-width:60ch">'+esc(l.desc)+'</p>'+
   '<div class="shead"><h2>Seller</h2></div>'+
   '<button class="card thread" style="width:100%;text-align:left" onclick="go(\'user\',\''+u.id+'\')">'+
-  '<div class="ava">'+esc(u.nick[0])+'</div><div style="flex:1"><b>'+esc(u.nick)+'</b> '+
+  '<div class="ava">'+esc(u.nick[0])+'</div><div style="flex:1"><b>'+nn(u)+'</b> '+
   (u.verified?'<span class="badge v">✓ VERIFIED</span>':'')+(u.founder?' <span class="badge founder">FOUNDER</span>':'')+
   '<div class="hint">'+esc(u.first)+' '+esc(u.last)+' · <span class="stars">'+stars(u.rating)+'</span> · '+u.sales+' sales</div>'+
   '<div class="hint" style="display:flex;align-items:center;gap:5px;margin-top:3px">'+rankLine(u)+'</div></div>'+
@@ -883,7 +876,7 @@ function vChat(){
     const last=t.msgs[t.msgs.length-1];
     return '<button class="card thread" style="width:100%;text-align:left;margin-bottom:10px" onclick="go(\'convo\',\''+t.id+'\')">'+
     '<div class="ava">'+esc(other.nick[0])+'</div><div style="flex:1;min-width:0">'+
-    '<b>'+esc(other.nick)+'</b> <span class="hint">· '+esc(l?l.model:'')+'</span>'+
+    '<b>'+nn(other)+'</b> <span class="hint">· '+esc(l?l.model:'')+'</span>'+
     '<div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(last?last.text:'Say what\'s up')+'</div>'+
     '</div><span style="color:var(--mut)">›</span></button>';
   }).join('');
@@ -894,7 +887,7 @@ function vConvo(tid){
   const l=S.listings.find(x=>x.id===t.listing);
   return '<button class="back" onclick="setTab(\'chat\')">&#8592; Pit radio</button>'+
   '<div class="card thread" style="margin-bottom:4px"><div class="ava">'+esc(other.nick[0])+'</div>'+
-  '<div><b>'+esc(other.nick)+'</b>'+(other.verified?' <span class="badge v">✓</span>':'')+
+  '<div><b>'+nn(other)+'</b>'+(other.verified?' <span class="badge v">✓</span>':'')+
   '<div class="hint">about: '+esc(l?l.title:'')+' · '+(l?fmt(l.price):'')+'</div></div></div>'+
   '<div class="msgs" style="padding-bottom:90px">'+t.msgs.map(m=>
     '<div class="msg '+(m.from===S.me?'me':'them')+'">'+esc(m.text)+'<time>'+esc(m.t)+'</time></div>').join('')+'</div>'+
@@ -927,9 +920,10 @@ function rankCard(u,self){
   return '<div class="card rankcard'+(u.master?' master':'')+'"><div class="rrow">'+
   emblem(u.prestige,56,u.master)+'<div style="flex:1;min-width:0">'+head+
   '<div class="xpbar"><i style="width:'+pct+'%"></i></div></div></div>'+
-  (self&&!u.master&&l>=MAXLVL
-    ?'<button class="btn amber" style="margin-top:14px" onclick="prestigeUp()">'+
-      ((u.prestige||0)>=10?'👑 Claim MASTER PRESTIGE':'Enter Prestige '+((u.prestige||0)+1)+' — reset to Rookie')+'</button>':'')+
+  (self&&!u.master&&l>=MAXLVL&&(u.prestige||0)<10
+    ?'<button class="btn amber" style="margin-top:14px" onclick="prestigeUp()">Enter Prestige '+((u.prestige||0)+1)+' — new name color, reset to Rookie</button>':'')+
+  (self&&!u.master&&l>=MAXLVL&&(u.prestige||0)>=10
+    ?'<div class="launchnote" style="margin-top:14px">👑 <b>Prestige 10 — max rank.</b> Master Prestige (and gold) belongs to the founder only.</div>':'')+
   '</div>';
 }
 function missionsHTML(u){
@@ -952,7 +946,7 @@ function vUser(uid,self){
   return (self?'':'<button class="back" onclick="setTab(\'market\')">&#8592; Back</button>')+
   '<div style="display:flex;gap:14px;align-items:center;margin:14px 0 4px">'+
   '<div class="ava" style="width:64px;height:64px;font-size:24px;flex:0 0 64px">'+esc(u.nick[0])+'</div>'+
-  '<div><h1 class="disp" style="font-size:24px">'+esc(u.nick)+'</h1>'+
+  '<div><h1 class="disp" style="font-size:24px">'+nn(u)+'</h1>'+
   '<p class="hint">'+esc(u.first)+' '+esc(u.last)+' · on the grid since '+esc(u.joined)+'</p>'+
   '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
   (u.master?'<span class="badge masterbadge">👑 MASTER PRESTIGE</span>':'')+
@@ -1097,6 +1091,14 @@ function unlockedCards(u){
 }
 function cardCss(u){const id=u.eqCard;const c=CARDS.find(x=>x.id===id)||unlockedCards(u).slice(-1)[0]||CARDS[0];return c.css}
 function equipCard(id){S.users[S.me].eqCard=id;save();render();toast('Calling card equipped.')}
+
+/* ---- name colors: gold reserved for Master; others unlock 1 per prestige ---- */
+const GOLD='#FFD34D';
+const NAMECOLORS=[[0,'#EEF1F6','Chalk'],[1,'#FF5A4E','Redline'],[2,'#4FA3FF','Ice'],[3,'#3DD68C','Slime'],[4,'#F2B33D','Amber'],[5,'#A78BFA','Violet'],[6,'#2DD4BF','Aqua'],[7,'#F472B6','Blossom'],[8,'#E8362D','Blood'],[9,'#C9CFD8','Silver'],[10,'#FFFFFF','Platinum']];
+function unlockedColors(u){const l=NAMECOLORS.filter(c=>u.master||c[0]<=(u.prestige||0));if(u.master)l.push([99,GOLD,'Founder Gold']);return l;}
+function nameColor(u){if(u.master)return GOLD;const un=unlockedColors(u).map(c=>c[1]);if(u.eqName&&un.includes(u.eqName))return u.eqName;return un[un.length-1]||'#EEF1F6';}
+function nn(u){const c=nameColor(u),g=c===GOLD;return '<span style="color:'+c+(g?';text-shadow:0 0 9px rgba(255,211,77,.5);font-weight:800':'')+'">'+esc(u.nick)+'</span>';}
+function equipName(c){S.users[S.me].eqName=c;save();render();toast('Name color set.')}
 function emblemArt(name,color,size){
   const OV={CROWN:'♛',ROOKIE:'RKY',TUNED:'TUN'};
   const s=size||38,short=OV[name]||(name.length>4?name.replace(/[^A-Z0-9]/gi,'').slice(0,4):name);
@@ -1116,7 +1118,7 @@ function pHome(){
   '<div style="display:flex;gap:14px;align-items:center;margin:-30px 0 6px;position:relative;z-index:2">'+
   '<div class="ava" style="width:70px;height:70px;font-size:26px;flex:0 0 70px;position:relative;border:3px solid var(--bg)">'+esc(u.nick[0])+
     (eqEmb?'<span style="position:absolute;bottom:-4px;right:-6px">'+emblemArt(eqEmb[0],eqEmb[1],28)+'</span>':'')+'</div>'+
-  '<div style="min-width:0;padding-top:26px"><h1 class="disp" style="font-size:23px">'+esc(u.nick)+'</h1>'+
+  '<div style="min-width:0;padding-top:26px"><h1 class="disp" style="font-size:23px">'+nn(u)+'</h1>'+
   '<p class="hint mono">'+esc(u.profileNo)+' · '+esc(u.first)+' '+esc(u.last)+'</p></div></div>'+
   '<div style="display:flex;gap:6px;margin:4px 0;flex-wrap:wrap">'+
   (u.master?'<span class="badge masterbadge">👑 MASTER</span>':'')+
@@ -1250,6 +1252,14 @@ function pEdit(){
   return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
   '<h1 class="disp" style="font-size:24px;margin:4px 0 12px">Edit profile</h1>'+
   '<div class="field"><label>Bio</label><textarea rows="3" id="pbio" placeholder="Who you are in the scene…">'+esc(u.bio||'')+'</textarea></div>'+
+  '<div class="shead"><h2>Name color</h2></div>'+
+  '<div style="margin-bottom:4px">Preview: '+nn(u)+'</div>'+
+  '<div class="swatches">'+
+  (u.master
+    ?'<button class="sw on" style="background:'+GOLD+';box-shadow:0 0 0 2px var(--bg),0 0 0 4px '+GOLD+'" title="Founder Gold (only you)"></button><span class="hint" style="align-self:center">Founder Gold — locked to you</span>'
+    :unlockedColors(u).map(([p,c,n])=>'<button class="sw '+((u.eqName||nameColor(u))===c?'on':'')+'" style="background:'+c+'" title="'+n+' (P'+p+')" onclick="equipName(\''+c+'\')"></button>').join('')
+      +'<span class="sw" style="background:'+GOLD+';opacity:.25;cursor:not-allowed" title="Gold is founder-only"></span>')+'</div>'+
+  '<p class="hint" style="margin:6px 0">'+(u.master?'':'You unlock a new name color with every prestige. ')+'Gold is reserved for the founder.</p>'+
   '<div class="shead"><h2>Equipped title</h2></div><div class="pickrow" style="flex-wrap:wrap">'+
   unlockedTitles(u).map(t=>'<button class="pick '+((u.eqTitle||unlockedTitles(u)[0])===t?'on':'')+'" onclick="equipTitle(\''+esc(t).replace(/'/g,"\\'")+'\')">'+esc(t)+'</button>').join('')+'</div>'+
   '<div class="shead"><h2>Equipped emblem</h2></div><div class="embgrid">'+
@@ -1320,7 +1330,7 @@ function pClans(){
   '<div class="shead"><h2>All clans</h2><button class="btn sm ghost" onclick="clanModal()">+ Start clan</button></div>'+
   S.clans.map(c=>{const owner=S.users[c.owner]||{nick:'?'};const inIt=c.members.includes(u.id);
     return '<div class="card clanrow"><span class="clantag" style="background:'+c.color+'">'+esc(c.tag)+'</span>'+
-    '<div style="flex:1;min-width:0"><b>'+esc(c.name)+'</b><div class="hint">'+c.members.length+' members · led by '+esc(owner.nick)+'</div>'+
+    '<div style="flex:1;min-width:0"><b>'+esc(c.name)+'</b><div class="hint">'+c.members.length+' members · led by '+nn(owner)+'</div>'+
     '<p style="font-size:12.5px;color:#9AA1AC;margin-top:3px">'+esc(c.about||'')+'</p></div>'+
     (inIt?'<span class="badge v">✓ IN</span>':'<button class="btn sm amber" onclick="joinClan(\''+c.id+'\')">Join</button>')+'</div>';
   }).join('');
@@ -1356,7 +1366,7 @@ function pMap(){
   const visible=Object.values(S.users).filter(x=>x.loc&&x.loc.visible);
   const pins=visible.map(x=>{const me=x.id===u.id;
     return '<div class="pin '+(me?'me':'')+'" style="left:'+x.loc.x+'%;top:'+x.loc.y+'%" onclick="'+(me?'':'joinPin(\''+x.id+'\')')+'">'+
-    '<div class="bub">'+(me?'⦿ ':'')+esc(x.nick)+' <span style="color:var(--amber)">'+(x.master?'★':'L'+lvlOf(x.xp).l)+'</span></div><div class="stem"></div></div>';
+    '<div class="bub">'+(me?'⦿ ':'')+nn(x)+' <span style="color:var(--amber)">'+(x.master?'★':'L'+lvlOf(x.xp).l)+'</span></div><div class="stem"></div></div>';
   }).join('');
   return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Live meet map</h1>'+
   '<p class="hint" style="margin-bottom:10px">Members who are visible show up here. Spot the scene, roll to a meet.</p>'+
@@ -1393,7 +1403,7 @@ function pAdmin(){
   '<div class="shead"><h2><s>Review queue</s></h2><span class="badge f">'+q.length+'</span></div>'+
   (q.length?q.map(item=>{const u=S.users[item.user]||{nick:'?'};
     const label=item.type==='race'?('Race win claim'):('Mission: '+(MISSIONS.find(m=>m.id===item.mid)||{t:item.mid}).t);
-    return '<div class="card queueitem"><b>'+esc(u.nick)+'</b> <span class="hint">· '+label+'</span>'+
+    return '<div class="card queueitem"><b>'+nn(u)+'</b> <span class="hint">· '+label+'</span>'+
     (item.videoUrl?'<div class="hint" style="margin-top:4px;word-break:break-all">🎥 '+esc(item.videoUrl)+'</div>':'')+
     (item.note?'<div class="hint">"'+esc(item.note)+'"</div>':'')+
     '<div class="qbtns"><button class="btn sm amber" onclick="adminApprove(\''+item.id+'\',true)">Approve</button>'+
@@ -1402,7 +1412,7 @@ function pAdmin(){
   '<div class="shead"><h2>Members</h2></div>'+
   Object.values(S.users).map(u=>{const {l}=u.master?{l:MAXLVL}:lvlOf(u.xp||0);
     return '<div class="card arow"><div class="ava" style="width:38px;height:38px;font-size:14px;flex:0 0 38px">'+esc(u.nick[0])+'</div>'+
-    '<div style="flex:1;min-width:0"><b>'+esc(u.nick)+'</b> '+(u.master?'<span class="badge masterbadge">M</span>':'')+
+    '<div style="flex:1;min-width:0"><b>'+nn(u)+'</b> '+(u.master?'<span class="badge masterbadge">M</span>':'')+
     '<div class="hint mono">'+esc(u.profileNo)+' · '+(u.master?'MASTER':'P'+u.prestige+' L'+l+' · '+(u.xp||0)+'xp')+'</div></div>'+
     (u.master?'':'<div class="abtns"><button class="abtn dn" onclick="adminLevel(\''+u.id+'\',-1)">−</button>'+
       '<button class="abtn up" onclick="adminLevel(\''+u.id+'\',1)">+</button>'+
