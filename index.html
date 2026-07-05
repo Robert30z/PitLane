@@ -524,6 +524,7 @@ function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch
   Object.keys(S.users).forEach(k=>{const u=S.users[k];
     u.xp=u.xp||0;u.prestige=u.prestige||0;u.completed=u.completed||{};u.pending=u.pending||[];
     u.races=u.races||{wins:0};u.races.losses=u.races.losses||0;u.attended=u.attended||[];u.trophies=u.trophies||[];
+    u.spotShots=u.spotShots||{};u.saved=u.saved||[];u.reviews=u.reviews||[];
     u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
     u.unlockedEmblems=u.unlockedEmblems||[];u.clan=u.clan||null;u.bio=u.bio||'';
     u.eqCard=u.eqCard||null;u.eqName=u.eqName||null;
@@ -655,7 +656,12 @@ function vMarket(){
   const q=(S._q||'').toLowerCase(),cat=S._cat||'all';
   let ls=S.listings.filter(l=>(cat==='all'||l.cat===cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q)));
   const feat=ls.filter(l=>l.boosted);
-  return '<input placeholder="Search the grid — Supra, K24, CBR…" value="'+esc(S._q||'')+'" oninput="S._q=this.value;render()" style="margin-bottom:12px">'+
+  const me=S.me?S.users[S.me]:null,saved=(me&&me.saved)||[];
+  return '<div style="display:flex;gap:8px;margin-bottom:12px"><input placeholder="Search the grid — Supra, K24, CBR…" value="'+esc(S._q||'')+'" oninput="S._q=this.value;render()">'+
+  ((S._q||cat!=='all')?'<button class="btn sm amber" style="flex:0 0 auto" onclick="saveSearch()">🔖 Save</button>':'')+'</div>'+
+  (saved.length?'<div class="chips">'+saved.map((s,i)=>{const cnt=matchCount(s);
+    return '<button class="chip" onclick="runSaved('+i+')">🔖 '+esc(s.q||CATS.find(c=>c[0]===s.cat)[1])+(cnt?' <span style="color:var(--amber)">'+cnt+'</span>':'')+' <span onclick="event.stopPropagation();rmSaved('+i+')" style="opacity:.6">✕</span></button>';
+  }).join('')+'</div>':'')+
   '<div class="chips">'+CATS.map(([k,lab])=>'<button class="chip '+(cat===k?'on':'')+'" onclick="S._cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
   (feat.length?'<div class="shead"><h2><s>Featured</s> — Pole position</h2><span class="badge f">BOOSTED</span></div>'+
     '<div class="featrow">'+feat.map(cardHTML).join('')+'</div>':'')+
@@ -663,6 +669,12 @@ function vMarket(){
   (ls.length?'<div class="grid">'+ls.map(cardHTML).join('')+'</div>'
     :'<div class="empty">Nothing in this lane yet.<br>Be the first to list.</div>');
 }
+function matchCount(s){const q=(s.q||'').toLowerCase();return S.listings.filter(l=>(s.cat==='all'||l.cat===s.cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q))).length}
+function saveSearch(){const u=S.users[S.me];u.saved=u.saved||[];const s={q:S._q||'',cat:S._cat||'all'};
+  if(u.saved.some(x=>x.q===s.q&&x.cat===s.cat))return toast('Already saved.');
+  u.saved.unshift(s);save();render();toast('Search saved. You\'ll see match counts here 🔖');}
+function runSaved(i){const s=S.users[S.me].saved[i];S._q=s.q;S._cat=s.cat;render();}
+function rmSaved(i){S.users[S.me].saved.splice(i,1);save();render();toast('Saved search removed.');}
 function cardHTML(l){
   const u=S.users[l.seller];
   return '<button class="lcard" onclick="go(\'listing\',\''+l.id+'\')"><div class="ph">'+art(l)+
@@ -706,8 +718,13 @@ function vListing(id){
     ?(l.boosted?'<button class="btn ghost" disabled>★ Already boosted</button>'
       :'<button class="btn amber" onclick="boostModal(\''+l.id+'\')">★ Boost this listing</button>')
     :'<button class="btn" onclick="msgSeller(\''+l.id+'\')">Message '+esc(u.nick)+'</button>')+
-  '</div><button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
+  '</div>'+
+  (mine?'<button class="btn '+(l.sold?'ghost':'line')+'" style="margin-top:10px" onclick="markSold(\''+l.id+'\')">'+(l.sold?'✓ Marked SOLD — tap to relist':'Mark as sold')+'</button>':'')+
+  '<button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
 }
+function markSold(lid){const l=S.listings.find(x=>x.id===lid);l.sold=!l.sold;
+  if(l.sold){const s=S.users[l.seller];s.sales=(s.sales||0)+1;}else{const s=S.users[l.seller];s.sales=Math.max(0,(s.sales||0)-1);}
+  save();render();toast(l.sold?'Marked SOLD 🏁 — buyers can now review you.':'Relisted.');}
 function msgSeller(lid){
   const l=S.listings.find(x=>x.id===lid);
   let t=S.threads.find(t=>t.listing===lid&&t.users.includes(S.me));
@@ -757,7 +774,10 @@ function vWizard(){
   if(W.step===2)body=
     '<h1 class="disp" style="font-size:24px">Legit check</h1>'+
     '<p class="hint" style="margin-bottom:14px">Buyers see the last 6 of the VIN only. Fake numbers = permanent black flag.</p>'+
-    '<div class="field"><label for="w_vin">VIN / Serial number</label><input id="w_vin" class="mono" placeholder="17 characters for road vehicles" value="'+esc(W.data.vin||'')+'" oninput="wSet(\'vin\',this.value)"></div>'+
+    '<div class="field"><label for="w_vin">VIN / Serial number</label>'+
+    '<div style="display:flex;gap:8px"><input id="w_vin" class="mono" placeholder="17 characters for road vehicles" value="'+esc(W.data.vin||'')+'" oninput="wSet(\'vin\',this.value)">'+
+    '<button class="btn sm ghost" style="flex:0 0 auto" onclick="decodeVIN()">Decode</button></div>'+
+    (W.data.vinInfo?'<p class="hint" style="color:var(--green)">✓ '+esc(W.data.vinInfo)+'</p>':'<p class="hint">Tap Decode to auto-read make &amp; year from the VIN.</p>')+'</div>'+
     '<div class="field"><label for="w_miles">Miles (0 if not applicable)</label><input id="w_miles" inputmode="numeric" value="'+esc(W.data.miles||'')+'" oninput="wSet(\'miles\',this.value)"></div>'+
     '<div class="field"><label for="w_titlest">Title status</label><select id="w_titlest" onchange="wSet(\'titleStatus\',this.value)">'+
     ['clean','salvage','rebuilt','bonded','bill-of-sale','n/a'].map(o=>'<option '+(W.data.titleStatus===o?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
@@ -795,6 +815,17 @@ function wNext1(){
   if(!d.price||isNaN(+d.price)||+d.price<=0)return toast('Enter a real asking price.');
   if(!d.loc)return toast('Where is it located?');
   W.step=2;render();
+}
+function decodeVIN(){
+  const v=(W.data.vin||'').toUpperCase().replace(/\s/g,'');
+  if(v.length<11)return toast('Enter the full VIN first (17 chars for road vehicles).');
+  const make=WMI[v.slice(0,3)]||WMI[v.slice(0,2)]||null;
+  const year=VINYEAR[v[9]]||null;
+  if(!make&&!year)return toast('Couldn\'t read that VIN — double-check it.');
+  W.data.vinInfo=(year?year+' ':'')+(make||'Unknown make');
+  if(make&&year&&(!W.data.title||W.data.title.trim().length<6))W.data.title=year+' '+make+' ';
+  render();
+  toast('Decoded: '+W.data.vinInfo+(make&&year?' — full decode via NHTSA comes with phase 2':''));
 }
 function wNext2(){
   const d=W.data;
@@ -973,6 +1004,7 @@ function vUser(uid,self){
   '<div class="stat"><b style="color:var(--red-hot)">'+wl(u).l+'</b><span>losses</span></div>'+
   '<div class="stat"><b>'+((u.trophies||[]).length)+'</b><span>trophies</span></div></div>'+
   ((u.garage&&u.garage[0])?'<div class="shead"><h2>Main build</h2></div>'+buildCard(u.garage[0]):'')+
+  reviewsBlock(u,uid,self)+
   (self&&u.founder?'<div class="launchnote"><b>Founder account.</b> You run PitLane. Boosts, featured slots and verified tiers are all FREE during launch season — flip on pricing when the grid fills up.</div>':'')+
   (self?missionsHTML(u):'')+
   '<div class="shead"><h2>'+(self?'Their listings':'Their listings').replace('Their',self?'My':'Their')+'</h2></div>'+
@@ -983,6 +1015,36 @@ function vUser(uid,self){
    '<p class="hint" style="text-align:center;margin-top:18px">PitLane v0.1 prototype · lawful sales only · events at sanctioned venues only</p>':'');
 }
 function logout(){S.me=null;save();view={name:'auth-welcome'};render()}
+/* ---- seller reviews (after a sale) ---- */
+function reviewsBlock(u,uid,self){
+  const revs=u.reviews||[];const avg=revs.length?(revs.reduce((a,r)=>a+r.stars,0)/revs.length):0;
+  return '<div class="shead"><h2>Reviews</h2>'+(revs.length?'<span class="stars">'+stars(avg)+' '+avg.toFixed(1)+'</span>':'<span class="hint">none yet</span>')+'</div>'+
+  (!self&&S.me?'<button class="btn ghost sm" style="margin-bottom:10px" onclick="reviewModal(\''+uid+'\')">★ Leave a review</button>':'')+
+  (revs.length?revs.slice(0,6).map(r=>{const f=S.users[r.from]||{nick:'?'};
+    return '<div class="card" style="padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>'+nn(f)+'</b><span class="stars">'+stars(r.stars)+'</span></div>'+
+    (r.text?'<p style="font-size:13px;color:#C6CDD9;margin-top:4px">'+esc(r.text)+'</p>':'')+'</div>';
+  }).join(''):'');
+}
+let reviewStars=5;
+function reviewModal(uid){
+  reviewStars=5;
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Review '+nn(S.users[uid])+'</h2>'+
+  '<p class="hint" style="margin:8px 0 10px">Leave this after a real deal or a race. Keep it honest.</p>'+
+  '<div id="rvstars" style="font-size:34px;letter-spacing:6px;color:var(--amber);cursor:pointer;text-align:center;margin:6px 0">'+
+  [1,2,3,4,5].map(n=>'<span onclick="setRvStars('+n+')">★</span>').join('')+'</div>'+
+  '<div class="field"><label>Comment</label><textarea id="rvtext" rows="3" placeholder="How was the deal / the race?"></textarea></div>'+
+  '<button class="btn amber" onclick="submitReview(\''+uid+'\')">Post review</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function setRvStars(n){reviewStars=n;const box=$('#rvstars');if(box)[...box.children].forEach((s,i)=>s.style.opacity=i<n?'1':'.3');}
+function submitReview(uid){
+  const u=S.users[uid];u.reviews=u.reviews||[];
+  u.reviews.unshift({from:S.me,stars:reviewStars,text:$('#rvtext').value.trim(),t:Date.now()});
+  u.rating=u.reviews.reduce((a,r)=>a+r.stars,0)/u.reviews.length;
+  save();document.querySelector('.overlay').remove();render();toast('Review posted. Trust built. ★');
+}
 
 /* =================== PRESTIGE WORLD =================== */
 const CLUB_DEFAULT='redline';
@@ -1031,6 +1093,20 @@ const CARDS=[
  {id:'gold',name:'Champion Gold',css:'linear-gradient(120deg,#ffd34d,#8a6d1f 75%)',min:30},
  {id:'master',name:'Master Crown',css:'linear-gradient(120deg,#ffd34d,#e8362d)',master:1}
 ];
+/* Culture Run — real popular spots across Puerto Rico. Park the car, snap it, earn XP. */
+const SPOTS=[
+ {id:'sp_mayaguez',name:'Plaza Colón',town:'Mayagüez',desc:'Park by the Cristóbal Colón statue in the plaza.',xp:200,lat:18.2013,lng:-67.1397},
+ {id:'sp_morro',name:'El Morro',town:'San Juan',desc:'The old fort walls of Viejo San Juan.',xp:250,lat:18.4711,lng:-66.1241},
+ {id:'sp_ponce',name:'Parque de Bombas',town:'Ponce',desc:'The red-and-black firehouse on Plaza Las Delicias.',xp:200,lat:18.0116,lng:-66.6140},
+ {id:'sp_cabrojo',name:'Faro Los Morrillos',town:'Cabo Rojo',desc:'The lighthouse on the cliffs.',xp:250,lat:17.9366,lng:-67.1897},
+ {id:'sp_rincon',name:'Faro de Rincón',town:'Rincón',desc:'Sunset spot at the lighthouse park.',xp:200,lat:18.3620,lng:-67.2698},
+ {id:'sp_crashboat',name:'Crash Boat',town:'Aguadilla',desc:'The colorful pier at Crash Boat beach.',xp:150,lat:18.4562,lng:-67.1613},
+ {id:'sp_yunque',name:'El Yunque',town:'Río Grande',desc:'Rainforest road pull-off.',xp:200,lat:18.2955,lng:-65.7900},
+ {id:'sp_arecibo',name:'Cueva Ventana',town:'Arecibo',desc:'The cave window over the valley.',xp:200,lat:18.3419,lng:-66.7699}
+];
+/* Offline VIN helper — WMI (first 3) → make, position 10 → model year */
+const WMI={'1HG':'Honda','2HG':'Honda','JHM':'Honda','19U':'Acura','JH4':'Acura','JT2':'Toyota','JTD':'Toyota','4T1':'Toyota','5TD':'Toyota','JT4':'Toyota','JN1':'Nissan','1N4':'Nissan','JN8':'Nissan','JF1':'Subaru','JF2':'Subaru','4S3':'Subaru','JM1':'Mazda','1YV':'Mazda','JA3':'Mitsubishi','JA4':'Mitsubishi','1FA':'Ford','1FT':'Ford','1G1':'Chevrolet','1G4':'Buick','2G1':'Chevrolet','1B3':'Dodge','2C3':'Dodge','1C3':'Chrysler','WBA':'BMW','WBS':'BMW','4US':'BMW','WDB':'Mercedes-AMG','WDD':'Mercedes-AMG','WAU':'Audi','TRU':'Audi','WVW':'Volkswagen','3VW':'Volkswagen','WP0':'Porsche','WP1':'Porsche','JTH':'Lexus','5YJ':'Tesla'};
+const VINYEAR={'A':2010,'B':2011,'C':2012,'D':2013,'E':2014,'F':2015,'G':2016,'H':2017,'J':2018,'K':2019,'L':2020,'M':2021,'N':2022,'P':2023,'R':2024,'S':2025,'T':2026,'1':2001,'2':2002,'3':2003,'4':2004,'5':2005,'6':2006,'7':2007,'8':2008,'9':2009};
 
 /* ---- gate ---- */
 function enterPrestige(){ if(unlocked){world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0)} else go('gate'); }
@@ -1393,6 +1469,7 @@ function eventRaceCard(ev,u){
       '<button class="abtn up" title="Approve" onclick="inspect(\''+ev.id+'\',\''+id+'\',true)">✓</button></div></div>';
     }).join(''):'')+
   (host&&ev.racers.length>=2?'<button class="btn sm line" style="margin-top:6px" onclick="logRaceModal(\''+ev.id+'\')">🏁 Log a race result</button>':'')+
+  (host?'<button class="btn sm line" style="margin-top:6px" onclick="editEventModal(\''+ev.id+'\')">💵 Set entry fee, race reg &amp; prize</button>':'')+
   '</div>';
 }
 function checkIn(eid){
@@ -1434,6 +1511,24 @@ function logRace(eid){
   if($('#rtrophy').checked&&ev.trophy){wu.trophies=wu.trophies||[];wu.trophies.push(ev.title+' — '+ev.trophy);}
   save();document.querySelector('.overlay').remove();render();
   toast('Result logged — '+wu.nick+' takes the W 🏁');
+}
+function editEventModal(eid){
+  const ev=S.events.find(e=>e.id===eid);
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">💵 Fees &amp; prize</h2>'+
+  '<p class="hint" style="margin:8px 0 12px">Set any amounts you want. Entry + race registration + a fixed purse/trophy is the legal setup — you keep your organizer cut. (No wager pots.)</p>'+
+  '<div class="row2"><div class="field"><label>Entry fee ($)</label><input id="ee_fee" inputmode="numeric" value="'+(ev.fee||'')+'"></div>'+
+  '<div class="field"><label>Race reg ($)</label><input id="ee_rf" inputmode="numeric" value="'+(ev.raceFee||'')+'"></div></div>'+
+  '<div class="row2"><div class="field"><label>Winner purse ($)</label><input id="ee_p" inputmode="numeric" value="'+(ev.purse||'')+'"></div>'+
+  '<div class="field"><label>Trophy name</label><input id="ee_t" value="'+esc(ev.trophy||'')+'"></div></div>'+
+  '<button class="btn amber" onclick="saveEventMoney(\''+eid+'\')">Save</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function saveEventMoney(eid){
+  const ev=S.events.find(e=>e.id===eid);
+  ev.fee=+($('#ee_fee').value||0);ev.raceFee=+($('#ee_rf').value||0);ev.purse=+($('#ee_p').value||0);ev.trophy=$('#ee_t').value.trim();
+  save();document.querySelector('.overlay').remove();render();toast('Event money updated.');
 }
 function acceptChallenge(id){const c=S.challenges.find(x=>x.id===id);c.status='accepted';save();render();toast('Challenge accepted — settle it at '+c.venue);}
 function declineChallenge(id){S.challenges=S.challenges.filter(x=>x.id!==id);save();render();toast('Challenge declined.');}
@@ -1496,6 +1591,8 @@ function pClans(){
     '<div style="flex:1"><b>'+esc(mine.name)+'</b><div class="hint">'+mine.members.length+' members · you\'re in'+(mine.owner===u.id?' · OWNER':'')+'</div></div>'+
     '<button class="btn sm line" onclick="leaveClan()">Leave</button></div>':
     '<div class="launchnote">You\'re not repping a clan yet. Join one or start your own crew.</div>')+
+  // clan wars leaderboard — ranked by total member XP + race wins
+  clanBoard()+
   '<div class="shead"><h2>All clans</h2><button class="btn sm ghost" onclick="clanModal()">+ Start clan</button></div>'+
   S.clans.map(c=>{const owner=S.users[c.owner]||{nick:'?'};const inIt=c.members.includes(u.id);
     return '<div class="card clanrow"><span class="clantag" style="background:'+c.color+'">'+esc(c.tag)+'</span>'+
@@ -1503,6 +1600,17 @@ function pClans(){
     '<p style="font-size:12.5px;color:#9AA1AC;margin-top:3px">'+esc(c.about||'')+'</p></div>'+
     (inIt?'<span class="badge v">✓ IN</span>':'<button class="btn sm amber" onclick="joinClan(\''+c.id+'\')">Join</button>')+'</div>';
   }).join('');
+}
+function clanStats(c){let xp=0,wins=0;c.members.forEach(id=>{const m=S.users[id];if(m){xp+=(m.xp||0)+(m.prestige||0)*3000;wins+=(m.races&&m.races.wins)||0}});return{xp,wins}}
+function clanBoard(){
+  if(!S.clans.length)return '';
+  const ranked=S.clans.map(c=>({c,...clanStats(c)})).sort((a,b)=>b.xp-a.xp);
+  return '<div class="shead"><h2><s>Clan wars</s> — Standings</h2></div>'+
+  ranked.map((r,i)=>'<div class="card clanrow" style="padding:11px 13px"><div class="disp" style="font-size:20px;width:26px;color:'+(i===0?'#FFD34D':'var(--mut)')+'">'+(i+1)+'</div>'+
+    '<span class="clantag" style="background:'+r.c.color+'">'+esc(r.c.tag)+'</span>'+
+    '<div style="flex:1;min-width:0"><b>'+esc(r.c.name)+'</b><div class="hint mono">'+r.xp.toLocaleString()+' pts · '+r.wins+' wins · '+r.c.members.length+' members</div></div>'+
+    (i===0?'<span class="badge f">🏆 #1</span>':'')+'</div>').join('')+
+  '<p class="hint" style="margin:4px 0 10px">Clans ranked by combined member XP + race wins. Recruit, grind, and take #1.</p>';
 }
 function clanModal(){
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
@@ -1542,7 +1650,37 @@ function pMap(){
   '<div class="mapwrap"><canvas id="mapcv"></canvas>'+pins+'</div>'+
   '<div class="mapctl"><div><b style="font-size:14px">Show me on the map</b><div class="hint">'+(u.loc.visible?'You\'re visible as '+esc(u.nick)+' · '+esc(u.loc.area):'You\'re hidden')+'</div></div>'+
   '<button class="toggle '+(u.loc.visible?'on':'')+'" onclick="toggleVisible()" aria-label="visibility"><i></i></button></div>'+
-  '<div class="warn" style="margin-top:12px"><b>Real talk on the map:</b> a live map of real people by name is powerful but heavy. It only becomes real with the phase-2 backend + Google Maps key — and if it\'s ever used to coordinate illegal street racing or dodge police, the app (and this location history) turns into evidence that works <b>against</b> members. Built for meets, track days and finding the crew — keep it to sanctioned spots.</div>';
+  '<div class="warn" style="margin-top:12px"><b>Real talk on the map:</b> a live map of real people by name is powerful but heavy. It only becomes real with the phase-2 backend + Google Maps key — and if it\'s ever used to coordinate illegal street racing or dodge police, the app (and this location history) turns into evidence that works <b>against</b> members. Built for meets, track days and finding the crew — keep it to sanctioned spots.</div>'+
+  cultureRunHTML(u);
+}
+function cultureRunHTML(u){
+  const done=SPOTS.filter(s=>u.spotShots&&u.spotShots[s.id]).length;
+  return '<div class="shead" style="margin-top:20px"><h2><s>Culture Run</s> — 🇵🇷 Puerto Rico</h2><span class="badge f">'+done+'/'+SPOTS.length+'</span></div>'+
+  '<p class="hint" style="margin-bottom:10px">Take your car to these spots across the island, snap a photo there, and bank the XP. Grow the culture, town by town.</p>'+
+  SPOTS.map(s=>{const pic=u.spotShots&&u.spotShots[s.id];
+    return '<div class="card" style="padding:12px 13px;margin-bottom:10px">'+
+    '<div style="display:flex;gap:12px;align-items:flex-start">'+
+    '<div style="flex:0 0 46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#0e3a2a,#0b0d10);display:flex;align-items:center;justify-content:center;font-size:20px">📍</div>'+
+    '<div style="flex:1;min-width:0"><b>'+esc(s.name)+'</b> <span class="hint">· '+esc(s.town)+'</span>'+
+    '<p style="font-size:12.5px;color:#9AA1AC;margin:2px 0 6px">'+esc(s.desc)+'</p>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+    '<span class="xp mono" style="color:var(--amber);font-weight:700">+'+s.xp+' XP</span>'+
+    '<a class="btn sm line" href="https://maps.google.com/?q='+s.lat+','+s.lng+'" target="_blank" rel="noopener" style="text-decoration:none">Open in Maps</a>'+
+    (pic?'<span class="badge v">✓ DONE</span>':'<label class="btn sm amber" style="position:relative;overflow:hidden">📸 Upload car here<input type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0" onchange="spotUpload(this,\''+s.id+'\')"></label>')+
+    '</div></div>'+
+    (pic?'<img src="'+pic+'" alt="" style="flex:0 0 60px;width:60px;height:60px;object-fit:cover;border-radius:10px">':'')+
+    '</div></div>';
+  }).join('')+
+  '<p class="hint">Real GPS check-in (must actually be there) comes with the phase-2 backend + Google Maps. For now it\'s photo-honor-system.</p>';
+}
+function spotUpload(inp,sid){
+  const f=inp.files[0];if(!f)return;const u=S.users[S.me];
+  const r=new FileReader();r.onload=()=>{u.spotShots=u.spotShots||{};const first=!u.spotShots[sid];
+    u.spotShots[sid]=r.result;
+    const sp=SPOTS.find(s=>s.id===sid);
+    if(first&&!u.master){u.xp=(u.xp||0)+sp.xp;}
+    save();render();toast(first?('📍 '+sp.name+' logged — +'+(u.master?0:sp.xp)+' XP. Culture grows.'):'Photo updated.');
+  };r.readAsDataURL(f);
 }
 function drawMap(){
   const cv=$('#mapcv');if(!cv)return;const w=cv.width=cv.clientWidth*2,h=cv.height=cv.clientHeight*2,x=cv.getContext('2d');
