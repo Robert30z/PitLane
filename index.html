@@ -1,0 +1,1389 @@
+<meta charset="utf-8">
+<title>PitLane — The Racing Marketplace</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+/* ============ PITLANE DESIGN TOKENS — night-race world, dark by design ============ */
+:root{
+  --bg:#0B0D10;          /* asphalt */
+  --panel:#14171D;       /* card */
+  --panel2:#1B1F27;      /* raised card */
+  --line:#272D38;        /* hairline */
+  --text:#EEF1F6;
+  --mut:#8B94A6;
+  --red:#E8362D;         /* redline */
+  --red-hot:#FF5A4E;
+  --green:#3DD68C;       /* verified / good */
+  --amber:#F2B33D;       /* boost / featured */
+  --radius:14px;
+  --disp:850 1em/1.02 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)!important;color:var(--text);
+  font:400 15px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100%}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);
+  border:1px solid var(--line);border-radius:10px;padding:11px 13px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--red)}
+input::placeholder,textarea::placeholder{color:#5D6675}
+:focus-visible{outline:2px solid var(--red-hot);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ============ APP SHELL ============ */
+#app{max-width:500px;margin:0 auto;min-height:100vh;position:relative;
+  background:var(--bg);box-shadow:0 0 80px rgba(232,54,45,.06)}
+@media(min-width:560px){#app{border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+.screen{padding:0 16px 96px}
+.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* display type — race-livery italic */
+.disp{font:var(--disp);font-style:italic;text-transform:uppercase;letter-spacing:-.01em}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:600}
+
+/* checkered micro-flag, used sparingly */
+.chq{height:8px;background:
+  repeating-conic-gradient(#fff 0 25%,#0B0D10 0 50%) 0 0/8px 8px;opacity:.9;border-radius:2px}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+  padding:14px 16px 10px;background:linear-gradient(var(--bg) 82%,transparent)}
+.logo{display:flex;align-items:baseline;gap:2px}
+.logo b{font:var(--disp);font-style:italic;font-size:22px;letter-spacing:-.02em}
+.logo b em{color:var(--red);font-style:italic}
+.logo .chq{width:26px;height:7px;margin-left:7px;transform:skewX(-14deg)}
+
+/* bottom nav */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;
+  display:flex;align-items:flex-end;justify-content:space-around;z-index:40;
+  background:linear-gradient(transparent,#0B0D10 26%);padding:20px 8px 12px}
+nav button{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mut);
+  font-size:10.5px;font-weight:600;letter-spacing:.04em;width:64px;padding:6px 0;border-radius:10px}
+nav button.on{color:var(--text)}
+nav button.on svg{stroke:var(--red-hot)}
+nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+nav .sellbtn{width:58px;height:58px;border-radius:50%;background:var(--red);color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-top:-16px;
+  box-shadow:0 6px 22px rgba(232,54,45,.45);border:3px solid #0B0D10}
+nav .sellbtn svg{width:26px;height:26px;stroke:#fff;stroke-width:2.4}
+
+/* cards & buttons */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:13px 16px;border-radius:11px;font-weight:700;font-size:15px;
+  background:var(--red);color:#fff;transition:transform .08s}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+.btn.line{background:none;border:1px solid var(--line);color:var(--mut)}
+.btn.amber{background:var(--amber);color:#231A05}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.sm{width:auto;padding:8px 14px;font-size:13px;border-radius:9px}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+  color:var(--mut);font-size:13px;font-weight:600;background:var(--panel)}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+  padding:3px 8px;border-radius:6px;letter-spacing:.03em}
+.badge.v{background:rgba(61,214,140,.14);color:var(--green)}
+.badge.f{background:rgba(242,179,61,.15);color:var(--amber)}
+.badge.founder{background:rgba(232,54,45,.16);color:var(--red-hot)}
+.badge.cat{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+
+/* listing grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;text-align:left;display:block;width:100%}
+.lcard .ph{aspect-ratio:4/3;position:relative;overflow:hidden}
+.lcard .info{padding:10px 11px 12px}
+.price{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-weight:700;
+  font-size:16px;font-variant-numeric:tabular-nums}
+.lcard h3{font-size:13px;font-weight:600;color:#C6CDD9;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard .meta{font-size:11.5px;color:var(--mut);margin-top:3px;display:flex;gap:6px;align-items:center}
+
+/* placeholder "spec-card" art (until sellers upload real shots) */
+.art{position:absolute;inset:0;display:flex;align-items:flex-end;padding:10px;overflow:hidden}
+.art .model{font:var(--disp);font-style:italic;font-size:26px;color:rgba(255,255,255,.92);
+  text-shadow:0 2px 10px rgba(0,0,0,.5);letter-spacing:-.02em;text-transform:uppercase;line-height:.95}
+.art .stripes{position:absolute;top:-20%;right:-8%;width:70%;height:140%;
+  background:repeating-linear-gradient(115deg,rgba(255,255,255,.10) 0 14px,transparent 14px 34px);
+  transform:skewX(-8deg)}
+.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.phototag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;background:rgba(0,0,0,.55);color:#fff;padding:3px 7px;border-radius:5px}
+
+/* featured strip */
+.featrow{display:flex;gap:12px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.featrow::-webkit-scrollbar{display:none}
+.featrow .lcard{flex:0 0 210px;border-color:rgba(242,179,61,.4)}
+
+/* section head */
+.shead{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}
+.shead h2{font:var(--disp);font-style:italic;font-size:17px;text-transform:uppercase;letter-spacing:.01em}
+.shead h2 s{color:var(--red);text-decoration:none}
+
+/* forms */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+.hint{font-size:12px;color:var(--mut);margin-top:5px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* wizard */
+.steps{display:flex;gap:5px;margin:14px 0 20px}
+.steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.steps i.on{background:var(--red)}
+.photoslots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.slot{aspect-ratio:4/3;border:1.5px dashed var(--line);border-radius:12px;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  color:var(--mut);font-size:12px;font-weight:600;overflow:hidden;background:var(--panel)}
+.slot.done{border-style:solid;border-color:var(--green)}
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.slot .tag{position:relative;z-index:2;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:6px;color:#fff}
+.slot .demo{position:relative;z-index:2;font-size:11px;color:var(--red-hot);text-decoration:underline}
+.slot input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3}
+
+/* events */
+.ecard{display:flex;gap:14px;padding:14px;margin-bottom:12px}
+.edate{flex:0 0 54px;text-align:center;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:8px 4px;height:fit-content}
+.edate b{font:var(--disp);font-style:italic;font-size:20px;display:block}
+.edate span{font-size:10.5px;letter-spacing:.1em;color:var(--mut);text-transform:uppercase}
+.ecard h3{font-size:15.5px;font-weight:700}
+.ecard .meta{font-size:12.5px;color:var(--mut);margin:4px 0 8px}
+
+/* chat */
+.thread{display:flex;gap:12px;padding:13px 14px;align-items:center}
+.ava{width:44px;height:44px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font:var(--disp);font-style:italic;
+  font-size:16px;color:var(--red-hot);flex:0 0 44px}
+.msgs{display:flex;flex-direction:column;gap:8px;padding:14px 0}
+.msg{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14.5px;line-height:1.4}
+.msg.me{align-self:flex-end;background:var(--red);color:#fff;border-bottom-right-radius:4px}
+.msg.them{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg time{display:block;font-size:10px;opacity:.65;margin-top:3px}
+.composer{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:500px;
+  display:flex;gap:8px;padding:10px 14px 14px;background:var(--bg);border-top:1px solid var(--line);z-index:45}
+.composer input{flex:1}
+.composer button{flex:0 0 46px;height:46px;border-radius:50%;background:var(--red);color:#fff}
+
+/* spec table */
+.spec{width:100%;border-collapse:collapse;font-size:14px}
+.spec td{padding:9px 0;border-bottom:1px solid var(--line)}
+.spec td:first-child{color:var(--mut);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.spec td:last-child{text-align:right;font-family:ui-monospace,Consolas,monospace}
+
+/* modal + toast */
+.overlay{position:fixed;inset:0;background:rgba(4,5,7,.72);z-index:60;display:flex;
+  align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:500px;background:var(--panel);border:1px solid var(--line);
+  border-radius:20px 20px 0 0;padding:20px 18px 26px;animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+#toast{position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:80;
+  background:#1E232C;border:1px solid var(--line);color:var(--text);padding:11px 18px;
+  border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  max-width:88%;text-align:center;display:none}
+
+/* auth */
+.auth{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 22px 40px;position:relative;overflow:hidden}
+.auth .glow{position:absolute;top:-140px;left:50%;transform:translateX(-50%);width:420px;height:420px;
+  border-radius:50%;background:radial-gradient(circle,rgba(232,54,45,.22),transparent 65%);pointer-events:none}
+.wordmark{font:var(--disp);font-style:italic;font-size:52px;text-transform:uppercase;
+  letter-spacing:-.03em;line-height:.92;text-wrap:balance}
+.wordmark em{color:var(--red);font-style:italic}
+.code6{display:flex;gap:8px;justify-content:center;margin:18px 0}
+.code6 input{width:46px;height:56px;text-align:center;font-size:24px;font-weight:800;padding:0;
+  font-family:ui-monospace,Consolas,monospace}
+.rules{font-size:12.5px;color:var(--mut);display:flex;gap:9px;align-items:flex-start;margin:14px 0}
+.rules input{width:17px;height:17px;flex:0 0 17px;margin-top:2px;accent-color:var(--red)}
+
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:13.5px;
+  font-weight:600;padding:6px 0;margin:8px 0 2px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat b{font:var(--disp);font-style:italic;font-size:20px;display:block}
+.stat span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+.stars{color:var(--amber);letter-spacing:1px;font-size:13px}
+.launchnote{background:linear-gradient(100deg,rgba(242,179,61,.13),rgba(232,54,45,.10));
+  border:1px solid rgba(242,179,61,.35);border-radius:12px;padding:12px 14px;font-size:13px;margin:14px 0}
+.launchnote b{color:var(--amber)}
+.empty{text-align:center;color:var(--mut);padding:48px 20px;font-size:14px}
+
+/* ============ RANK SYSTEM ============ */
+.rankcard{padding:16px;margin:14px 0;position:relative;overflow:hidden}
+.rankcard .rrow{display:flex;gap:14px;align-items:center}
+.rankcard.master{border-color:rgba(255,211,77,.55);
+  background:linear-gradient(135deg,#1A1408,#14171D 55%)}
+.xpbar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:10px}
+.xpbar i{display:block;height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--red),var(--red-hot))}
+.rankcard.master .xpbar i{background:linear-gradient(90deg,#B8860B,#FFD34D)}
+.ranktitle{font:var(--disp);font-style:italic;font-size:19px;text-transform:uppercase}
+.mission{display:flex;gap:12px;align-items:center;padding:12px 13px;margin-bottom:9px}
+.mission .mi{flex:1;min-width:0}
+.mission b{font-size:14px}
+.mission p{font-size:12px;color:var(--mut);margin-top:1px}
+.mission .xp{font-family:ui-monospace,Consolas,monospace;color:var(--amber);
+  font-weight:700;font-size:13px;white-space:nowrap}
+.mission.done{border-color:rgba(61,214,140,.4)}
+.mission.pend{border-color:rgba(242,179,61,.4)}
+.rchip{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
+.masterbadge{background:linear-gradient(100deg,#B8860B,#FFD34D);color:#231A05;
+  font-weight:800;letter-spacing:.06em}
+
+/* ============ PRESTIGE WORLD ============ */
+.lockbtn{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--amber)}
+.lockbtn svg{width:14px;height:14px;stroke:var(--amber);fill:none;stroke-width:2}
+.p-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:14px 16px 10px;
+  background:linear-gradient(var(--bg) 82%,transparent)}
+.p-top .plogo{font:var(--disp);font-style:italic;font-size:20px;letter-spacing:-.02em}
+.p-top .plogo em{color:var(--amber);font-style:italic}
+nav.pnav button.on svg{stroke:var(--amber)}
+nav.pnav .sellbtn{background:var(--amber);box-shadow:0 6px 22px rgba(242,179,61,.4)}
+.gate{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 24px;position:relative;overflow:hidden}
+.gate .glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:400px;height:400px;
+  border-radius:50%;background:radial-gradient(circle,rgba(242,179,61,.18),transparent 65%);pointer-events:none}
+.lockring{width:70px;height:70px;border-radius:50%;border:2px solid var(--amber);display:flex;
+  align-items:center;justify-content:center;margin-bottom:20px}
+.lockring svg{width:30px;height:30px;stroke:var(--amber);fill:none;stroke-width:2}
+.warn{background:rgba(232,54,45,.10);border:1px solid rgba(232,54,45,.4);border-radius:12px;
+  padding:12px 14px;font-size:12.5px;color:#F3B4B0;margin:14px 0}
+.warn b{color:var(--red-hot)}
+
+/* car build card */
+.buildcard{position:relative;border-radius:var(--radius);overflow:hidden;padding:0;background:var(--panel)}
+.buildstage{aspect-ratio:16/10;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.buildstage .floor{position:absolute;inset:0;background:
+  radial-gradient(ellipse at 50% 118%,rgba(255,255,255,.10),transparent 60%),
+  linear-gradient(#0d1014,#05070a)}
+.buildstage .grid-lines{position:absolute;inset:0;background-image:
+  linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:34px 34px;
+  transform:perspective(300px) rotateX(58deg) translateY(30%);transform-origin:bottom;opacity:.5}
+.buildstage svg{position:relative;z-index:2;width:82%;filter:drop-shadow(0 16px 20px rgba(0,0,0,.5))}
+.buildhud{position:absolute;top:10px;left:10px;z-index:3;font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.buildhud b{color:var(--text)}
+.specgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.specgrid div{background:var(--panel);padding:11px 13px}
+.specgrid span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);display:block}
+.specgrid b{font-family:ui-monospace,Consolas,monospace;font-size:15px}
+
+/* swatches */
+.swatches{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
+.sw{width:34px;height:34px;border-radius:9px;border:2px solid transparent;cursor:pointer;position:relative}
+.sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--amber)}
+.pickrow{display:flex;gap:8px;overflow-x:auto;padding:4px 0;scrollbar-width:none}
+.pickrow::-webkit-scrollbar{display:none}
+.pick{flex:0 0 auto;padding:9px 13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  font-size:13px;font-weight:600;color:var(--mut);white-space:nowrap}
+.pick.on{border-color:var(--amber);color:var(--text);background:rgba(242,179,61,.08)}
+
+/* titles & emblems */
+.titlebadge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;
+  font-weight:800;letter-spacing:.05em;font-size:13px;border:1px solid var(--line);background:var(--panel2)}
+.embgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.emb{aspect-ratio:1;border-radius:12px;border:1px solid var(--line);background:var(--panel);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px;cursor:pointer;position:relative}
+.emb.on{border-color:var(--amber);box-shadow:0 0 0 2px rgba(242,179,61,.25) inset}
+.emb.lock{opacity:.35}
+.emb .ename{font-size:9px;font-weight:800;letter-spacing:.04em;text-align:center;line-height:1.1}
+.emblemart{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-style:italic;font-size:13px;color:#fff;transform:skewX(-6deg)}
+
+/* clans */
+.clanrow{display:flex;gap:12px;align-items:center;padding:13px 14px;margin-bottom:10px}
+.clantag{font:var(--disp);font-style:italic;font-size:15px;padding:5px 10px;border-radius:8px;
+  color:#fff;letter-spacing:.02em;flex:0 0 auto}
+
+/* map */
+.mapwrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);
+  aspect-ratio:1/1.15;background:#0a0f14}
+.mapwrap canvas{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,-100%);z-index:3;display:flex;flex-direction:column;
+  align-items:center;cursor:pointer}
+.pin .bub{background:#14171D;border:1.5px solid var(--amber);border-radius:8px;padding:3px 7px;font-size:10px;
+  font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:4px;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.pin.me .bub{border-color:var(--red-hot);background:#1c1315}
+.pin .stem{width:2px;height:9px;background:var(--amber)}
+.pin.me .stem{background:var(--red-hot)}
+.mapctl{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px}
+.toggle{width:46px;height:26px;border-radius:14px;background:var(--line);position:relative;flex:0 0 46px;transition:.2s}
+.toggle.on{background:var(--green)}
+.toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on i{left:23px}
+
+/* admin */
+.arow{display:flex;gap:10px;align-items:center;padding:11px 13px;margin-bottom:8px}
+.arow .abtns{display:flex;gap:6px}
+.abtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);
+  font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center}
+.abtn.up{color:var(--green)}.abtn.dn{color:var(--red-hot)}.abtn.pp{color:var(--amber);font-size:11px;width:auto;padding:0 9px}
+.queueitem{padding:12px 14px;margin-bottom:9px}
+.qbtns{display:flex;gap:8px;margin-top:9px}
+.gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.gallery .add{aspect-ratio:1;border:1.5px dashed var(--line);border-radius:10px;display:flex;
+  align-items:center;justify-content:center;color:var(--mut);font-size:26px;position:relative}
+.gallery .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+</style>
+
+<div id="app"></div>
+<div id="toast" role="status"></div>
+
+<script>
+/* =================== PITLANE v0.1 — prototype (local data) =================== */
+'use strict';
+const $=s=>document.querySelector(s);
+const APP=$('#app');
+const KEY='pitlane_v1';
+const CATS=[['all','All'],['cars','Cars'],['moto','Motorcycles'],['atv','ATV / UTV'],['water','Watercraft'],['parts','Parts & Engines']];
+const HUES={cars:[215,255],moto:[350,20],atv:[95,140],water:[190,215],parts:[35,55]};
+const SHOTS=['Front 3/4','Rear 3/4','Engine bay','Odometer','VIN plate','Interior'];
+
+/* ============ RANKS — 10 prestiges x 30 levels + MASTER PRESTIGE ============ */
+const MAXLVL=30;
+const TITLES=[[30,'Grid King'],[25,'Podium Finisher'],[20,'Track Rat'],[15,'Club Racer'],[10,'Tuner'],[5,'Street'],[1,'Rookie']];
+const PNAMES=[null,'Piston','Wrench','Cam Gear','Turbo','Nitrous','Helmet','Redline','Chevron','Bolt','Crown'];
+const need=l=>100+35*(l-1);                       /* xp needed to clear level l */
+function lvlOf(xp){let l=1,c=0;while(l<MAXLVL&&xp>=c+need(l)){c+=need(l);l++}return{l,into:xp-c,next:need(l)}}
+const titleOf=l=>TITLES.find(([min])=>l>=min)[1];
+function emblem(p,size,master){
+  const s=size||40;
+  if(master)return '<svg class="rchip" width="'+s+'" height="'+s+'" viewBox="0 0 48 48" aria-label="Master Prestige">'+
+    '<circle cx="24" cy="24" r="22" fill="#191204" stroke="#FFD34D" stroke-width="2.5"/>'+
+    '<path d="M9 32 Q13 39 20 41 M39 32 Q35 39 28 41" fill="none" stroke="#FFD34D" stroke-width="2" stroke-linecap="round"/>'+
+    '<polygon points="24,9 27.5,18.5 37,18.5 29.5,24.5 32.5,34 24,28 15.5,34 18.5,24.5 11,18.5 20.5,18.5" fill="#FFD34D"/>'+
+    '<rect x="18" y="36" width="12" height="4" fill="#FFD34D"/><rect x="21" y="36" width="3" height="4" fill="#191204"/></svg>';
+  if(!p)return '<svg class="rchip" width="'+s+'" height="'+s+'" viewBox="0 0 48 48" aria-label="Unranked">'+
+    '<circle cx="24" cy="24" r="22" fill="#14171D" stroke="#3A414E" stroke-width="2"/>'+
+    '<polygon points="16,26 24,19 32,26 32,31 24,24 16,31" fill="#5D6675"/></svg>';
+  const col=['','#B0783C','#C9CFD8','#E3B341','#4FA3FF','#3DD68C','#A78BFA','#F2B33D','#FF5A4E','#E8362D','#FFD34D'][p];
+  const M={
+    1:'<rect x="18" y="13" width="12" height="11" rx="2" fill="C"/><rect x="21.5" y="24" width="5" height="9" fill="C"/><circle cx="24" cy="36" r="3.4" fill="none" stroke="C" stroke-width="2.5"/>',
+    2:'<g transform="rotate(45 24 24)"><circle cx="24" cy="13" r="5.5" fill="none" stroke="C" stroke-width="3.5"/><rect x="21.8" y="18" width="4.4" height="18" rx="2" fill="C"/></g>',
+    3:'<circle cx="24" cy="24" r="7.5" fill="none" stroke="C" stroke-width="3.5"/>'+[0,45,90,135,180,225,270,315].map(a=>'<rect x="22.4" y="11" width="3.2" height="5.5" rx="1" fill="C" transform="rotate('+a+' 24 24)"/>').join(''),
+    4:'<circle cx="24" cy="24" r="3.2" fill="C"/>'+[0,72,144,216,288].map(a=>'<ellipse cx="24" cy="15.5" rx="3" ry="7" fill="C" transform="rotate('+a+' 24 24)"/>').join(''),
+    5:'<rect x="19" y="17" width="10" height="19" rx="4.5" fill="C"/><rect x="21.5" y="12" width="5" height="5" fill="C"/><rect x="21" y="22" width="6" height="2.5" fill="#14171D"/>',
+    6:'<path d="M13 27 a11 11 0 0 1 22 0 v5 h-22 z" fill="C"/><rect x="15.5" y="23" width="13" height="4.5" rx="2" fill="#14171D"/>',
+    7:'<path d="M12 30 A13 13 0 0 1 36 30" fill="none" stroke="C" stroke-width="3.5" stroke-linecap="round"/><line x1="24" y1="29" x2="32" y2="19" stroke="C" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="30" r="2.8" fill="C"/>',
+    8:'<polygon points="15,21 24,13 33,21 33,26 24,18 15,26" fill="C"/><polygon points="15,30 24,22 33,30 33,35 24,27 15,35" fill="C"/>',
+    9:'<polygon points="27,9 17,27 22.5,27 20,39 31,21 25.5,21" fill="C"/>',
+    10:'<polygon points="13,31 13,19 19,24 24,15 29,24 35,19 35,31" fill="C"/><circle cx="17" cy="34.5" r="1.6" fill="C"/><circle cx="24" cy="34.5" r="1.6" fill="C"/><circle cx="31" cy="34.5" r="1.6" fill="C"/>'
+  }[p].replace(/"C"/g,'"'+col+'"');
+  return '<svg class="rchip" width="'+s+'" height="'+s+'" viewBox="0 0 48 48" aria-label="Prestige '+p+'">'+
+  '<circle cx="24" cy="24" r="22" fill="#14171D" stroke="'+col+'" stroke-width="2.5"/>'+M+'</svg>';
+}
+function rankLine(u){
+  if(u.master)return emblem(0,18,true)+' <b style="color:#FFD34D">MASTER</b>';
+  const {l}=lvlOf(u.xp||0);
+  return emblem(u.prestige,18)+' P'+(u.prestige||0)+' · L'+l;
+}
+const MISSIONS=[
+  {id:'first_listing',t:'First Grid Entry',d:'Publish your first listing',xp:300,auto:1,once:1},
+  {id:'full_set',t:'Full Set',d:'Publish a listing with all 6 real photos (no demo shots)',xp:200,auto:1,once:1},
+  {id:'lister',t:'Lot Rotator',d:'Every listing you publish',xp:150,auto:1},
+  {id:'rsvp',t:'Pull Up',d:'RSVP to a community event',xp:100,auto:1},
+  {id:'host',t:'Host With The Most',d:'Host an event at a sanctioned venue',xp:250,auto:1},
+  {id:'first_msg',t:'On The Radio',d:'Send your first message to a seller',xp:50,auto:1,once:1},
+  {id:'boost',t:'Pole Sitter',d:'Boost one of your listings',xp:100,auto:1,once:1},
+  {id:'hp500',t:'500 HP Club',d:'Dyno sheet showing 500+ whp — crew verified',xp:500,once:1},
+  {id:'fullbuild',t:'Fully Built',d:'Engine, suspension, brakes and aero all done — crew verified',xp:750,once:1},
+  {id:'circuit',t:'Circuit Racer',d:'Run a full track day — crew verified',xp:400,once:1},
+  {id:'strip',t:'Strip Veteran',d:'Legal timeslip under 13s — crew verified',xp:500,once:1},
+  {id:'show',t:'Show Winner',d:'Take a trophy at any car show — crew verified',xp:400,once:1},
+  {id:'helper',t:'Wrench Angel',d:'Help a member with their build — they vouch for you',xp:300,once:1}
+];
+function award(mid){
+  const u=S.users[S.me],m=MISSIONS.find(x=>x.id===mid);
+  if(!m||u.master)return;
+  u.completed=u.completed||{};
+  if(m.once&&u.completed[mid])return;
+  const before=lvlOf(u.xp||0).l;
+  u.completed[mid]=(u.completed[mid]||0)+1;
+  u.xp=(u.xp||0)+m.xp;
+  const after=lvlOf(u.xp).l;
+  save();
+  setTimeout(()=>{
+    if(after>before)toast('LEVEL UP — '+after+' · '+titleOf(after)+'  (+'+m.xp+' XP · '+m.t+')');
+    else toast('+'+m.xp+' XP — '+m.t);
+  },700);
+}
+function submitProof(mid){
+  const u=S.users[S.me];u.pending=u.pending||[];
+  if(u.pending.includes(mid))return;
+  u.pending.push(mid);save();render();
+  toast('Proof submitted — the crew will review it.');
+}
+function prestigeUp(){
+  const u=S.users[S.me];
+  const {l}=lvlOf(u.xp||0);
+  if(l<MAXLVL)return;
+  if((u.prestige||0)>=10){u.master=true;save();render();
+    return toast('MASTER PRESTIGE. The grid bows. 👑');}
+  u.prestige=(u.prestige||0)+1;u.xp=0;save();render();
+  toast('PRESTIGE '+u.prestige+' — '+PNAMES[u.prestige]+'. Back to Rookie, legend intact.');
+}
+
+let S=null, view={name:'auth-welcome'}, tab='market', W=null, pend=null;
+
+function seed(){return{
+  me:null,
+  users:{
+    trippzy:{id:'trippzy',first:'Roberto',last:'M.',nick:'Trippzy',email:'rjohn7148@gmail.com',
+      verified:true,founder:true,rating:5,sales:0,joined:'2026-07',master:true,prestige:10,xp:99999,completed:{},pending:[]},
+    marv:{id:'marv',first:'Marcus',last:'Reyes',nick:'BoostedMarv',email:'m@x.com',verified:true,rating:4.8,sales:14,joined:'2026-06',prestige:1,xp:4200,completed:{},pending:[],
+      races:{wins:23},bio:'Single turbo everything. If it don\'t boost it don\'t move.',clan:'c1',
+      carBuild:{brand:'Mazda',model:'RX-7 FD',year:'1993',paint:'#EDEFF2',rim:'Volk TE37',rimC:'#B08D57',stance:'Slammed',drive:'RWD',hp:'505',mods:'BorgWarner S366\nHaltech Elite 1500\nFortune Auto 500 coilovers'},
+      loc:{x:62,y:28,visible:true,area:'North lot'}},
+    lena:{id:'lena',first:'Lena',last:'Ortiz',nick:'ClutchQueen',email:'l@x.com',verified:true,rating:4.9,sales:22,joined:'2026-06',prestige:2,xp:7600,completed:{},pending:[],
+      races:{wins:41},bio:'Six-speed swaps and clean tunes.',clan:'c1',
+      carBuild:{brand:'Toyota',model:'Supra',year:'1998',paint:'#111418',rim:'Work Meister S1',rimC:'#D4AF37',stance:'Lowered',drive:'RWD',hp:'720',mods:'Rebuilt 2JZ\nPrecision 6870\nGetrag 6-speed'},
+      loc:{x:40,y:55,visible:true,area:'Industrial row'}},
+    dan:{id:'dan',first:'Danny',last:'Fuentes',nick:'TwoStrokeDan',email:'d@x.com',verified:false,rating:4.2,sales:3,joined:'2026-07',prestige:0,xp:900,completed:{},pending:[],
+      races:{wins:6},bio:'Bikes and quads. Two strokes forever.',clan:null,
+      carBuild:{brand:'Honda Moto',model:'CBR600RR',year:'2006',paint:'#E8362D',rim:'',rimC:'#1A1C20',stance:'Stock',drive:'RWD',hp:'105',mods:'Yoshimura full exhaust\nQ5 tires'},
+      loc:{x:78,y:70,visible:true,area:'East side'}}
+  },
+  listings:[
+    L('l1','marv','cars','1993 Mazda RX-7 FD','RX-7',28500,'Touring, WA',61000,'clean','JM1FD3313P0201884',
+      ['Single turbo swap (BorgWarner S366)','Haltech Elite 1500','Full coilovers — Fortune Auto 500','RE Amemiya front bumper'],
+      'Cleanest FD you will find. Compression tested last month, numbers in the ad photos. No street abuse stories to hide — track queen.',true),
+    L('l2','lena','cars','1998 Toyota Supra Turbo','SUPRA',62000,'Riverside, CA',88200,'clean','JT2DE82A0W0031558',
+      ['Stock twins recently rebuilt','6-speed Getrag','TRD wing','New OEM turbos & timing'],
+      'Unmolested 6-speed turbo. Every service record since 2004. Serious buyers only, no trades.',true),
+    L('l3','dan','moto','2006 Honda CBR600RR','CBR 600RR',5200,'Mesa, AZ',18400,'clean','JH2PC37086M300112',
+      ['Yoshimura full exhaust','New Q5 tires','Frame sliders'],
+      'Track-ready 600. Never dropped. Selling to fund a liter bike.',false),
+    L('l4','lena','moto','2020 Ducati Panigale V2','PANIGALE',13900,'Riverside, CA',6100,'clean','ZDMHAAKW1LB012877',
+      ['Termignoni slip-on','Ohlins steering damper'],
+      'Garage kept, dealer serviced. Comes with stock exhaust too.',false),
+    L('l5','marv','atv','2017 Yamaha YFZ450R','YFZ 450R',6800,'Touring, WA',0,'bill-of-sale','5Y4AJ47Y0HA100221',
+      ['GYTR full exhaust','Nerf bars','Fresh top end — 2 rides'],
+      'Dunes machine. Hours not miles — motor rebuilt this spring, receipts in hand.',false),
+    L('l6','dan','water','2003 Kawasaki SX-R 800','SX-R 800',4100,'Mesa, AZ',0,'bill-of-sale','KAW42186D303',
+      ['Factory pipe','Hydro-Turf mats','Solid hull, no repairs'],
+      'Standup ski, runs strong. Trailer available separate.',false),
+    L('l7','marv','parts','K24A2 complete swap — engine + trans','K24A2',3300,'Touring, WA',94000,'n/a','K24A2-4034112',
+      ['TSX motor, 94k documented','6-speed trans + axles','Swap mounts & harness included'],
+      'Ran perfect when pulled — video of it running before removal available. Everything you need minus ECU tune.',false),
+    L('l8','lena','cars','2015 Subaru WRX STI','STI',24900,'Riverside, CA',54300,'clean','JF1VA2M60F9820115',
+      ['Cobb Stage 2 — pro tuned','Invidia catback','Never launched, never abused'],
+      'Adult owned. Full bolt-on with a clean dyno sheet included.',false),
+    L('l9','dan','cars','1987 Buick Grand National','GRAND NATIONAL',34000,'Mesa, AZ',71800,'clean','1G4GJ1179HP451102',
+      ['All original turbo 3.8','New fuel system','Documented survivor'],
+      'The legend. Turbo Regal done right — no cut wires, no mystery mods.',false)
+  ],
+  events:[
+    E('e1','trippzy','meet','PitLane Launch Meet','Sat Jul 18','JUL','18','Grand Prix Plaza lot (sanctioned)','Kick-off meet for the PitLane community. All builds welcome — cars, bikes, quads. Vendor row + photo wall.',['marv','lena','dan']),
+    E('e2','lena','track','Open Track Day — Chuckwalla','Sun Jul 26','JUL','26','Chuckwalla Valley Raceway','Full day, open passing with point-by. Helmets required, tech inspection at gate 7am.',['marv']),
+    E('e3','marv','drag','Test & Tune Night','Fri Aug 1','AUG','1','Pacific Raceways — 1/4 mile','Legal runs, real timeslips. $30 tech card at the gate. Prove it on the strip.',['dan','lena']),
+    E('e4','dan','dyno','Dyno Day + BBQ','Sat Aug 9','AUG','9','Mesa Performance Works','$60 for 3 pulls with printout. Highest HP-per-dollar build takes a trophy.',[])
+  ],
+  clans:[
+    {id:'c1',tag:'RDLN',name:'Redline Society',owner:'marv',color:'#E8362D',members:['marv','lena'],about:'No lift, no chill. Turbo builds and clean passes only.'},
+    {id:'c2',tag:'APEX',name:'Apex Hunters',owner:'lena',color:'#2C6FB5',members:['lena'],about:'Track day crew — canyons and circuits.'}
+  ],
+  queue:[
+    {id:'q1',type:'race',user:'dan',videoUrl:'https://youtu.be/demo-run',note:'Won a roll race vs a Mustang GT, timeslip in the clip',claim:1}
+  ],
+  clubPass:'redline',pno:5,
+  threads:[
+    {id:'t1',listing:'l1',users:['trippzy','marv'],msgs:[
+      {from:'trippzy',text:'Is the compression test recent? And any smoke on cold start?',t:'2:14 PM'},
+      {from:'marv',text:'Tested 3 weeks ago — 118/119 across all faces. Zero smoke, I can send a cold start video tonight.',t:'2:31 PM'}
+    ]}
+  ]
+};}
+function L(id,seller,cat,title,model,price,loc,miles,title_st,vin,mods,desc,boost){
+  const [h1,h2]=HUES[cat];
+  return{id,seller,cat,title,model,price,loc,miles,titleStatus:title_st,vin,mods,desc,
+    boosted:!!boost,hue:h1+Math.floor(Math.random()*(h2-h1)),photos:null,posted:'Jul 2026'};
+}
+function E(id,host,type,title,when,mo,day,venue,desc,going){return{id,host,type,title,when,mo,day,venue,desc,going}}
+
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch(e){} if(!S)S=seed();
+  S.clans=S.clans||[];S.queue=S.queue||[];S.clubPass=S.clubPass||CLUB_DEFAULT;S.pno=S.pno||1;
+  Object.keys(S.users).forEach(k=>{const u=S.users[k];
+    u.xp=u.xp||0;u.prestige=u.prestige||0;u.completed=u.completed||{};u.pending=u.pending||[];
+    u.races=u.races||{wins:0};u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
+    u.unlockedEmblems=u.unlockedEmblems||[];u.clan=u.clan||null;u.bio=u.bio||'';
+    if(!u.profileNo)u.profileNo='PL-'+String(S.pno++).padStart(4,'0');
+    if(!u.loc)u.loc={x:15+Math.random()*70,y:15+Math.random()*70,visible:false,area:'—'};});
+  if(S.users.trippzy){const t=S.users.trippzy;t.master=true;t.profileNo='PL-0001';
+    t.loc.visible=true;t.loc.area='HQ';}
+  save();}
+
+/* =================== HELPERS =================== */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>'$'+Number(n).toLocaleString('en-US');
+const stars=r=>'★'.repeat(Math.round(r))+'☆'.repeat(5-Math.round(r));
+const maskVIN=v=>v.length>6?'•••••••••••'+v.slice(-6):v;
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
+function icon(n){const p={
+  market:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  events:'<path d="M5 21V4"/><path d="M5 4h13l-2.5 4L18 12H5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/>',
+  profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/>'
+  }[n];return '<svg viewBox="0 0 24 24" aria-hidden="true">'+p+'</svg>'}
+
+/* placeholder "spec-card" art until real seller photos exist */
+function art(l,label){
+  if(l.photos&&l.photos[0])return '<div class="art"><img src="'+l.photos[0]+'" alt=""></div>';
+  return '<div class="art" style="background:linear-gradient(140deg,hsl('+l.hue+' 32% 22%),hsl('+l.hue+' 45% 10%) 70%)">'+
+    '<div class="stripes"></div><span class="model">'+esc(l.model)+'</span>'+
+    (label?'<span class="phototag">'+esc(label)+'</span>':'')+'</div>';
+}
+
+/* =================== RENDER CORE =================== */
+function go(name,arg){view={name,arg};render();window.scrollTo(0,0)}
+function setTab(t){tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
+function render(){
+  if(!S.me&&!['auth-welcome','auth-signup','auth-verify'].includes(view.name))view={name:'auth-welcome'};
+  const v=view.name;
+  if(v==='auth-welcome')return APP.innerHTML=vWelcome();
+  if(v==='auth-signup')return APP.innerHTML=vSignup();
+  if(v==='auth-verify')return APP.innerHTML=vVerify();
+  if(v==='listing')return APP.innerHTML=shell(vListing(view.arg),false);
+  if(v==='wizard')return APP.innerHTML=shell(vWizard(),false);
+  if(v==='convo')return APP.innerHTML=shell(vConvo(view.arg),false);
+  if(v==='event-new')return APP.innerHTML=shell(vEventNew(),false);
+  if(v==='user')return APP.innerHTML=shell(vUser(view.arg),false);
+  if(v==='gate')return APP.innerHTML=vGate();
+  if(v==='prestige')return APP.innerHTML=prestigeShell();
+  APP.innerHTML=shell({market:vMarket,events:vEvents,chat:vChat,profile:vProfile}[tab](),true);
+}
+function shell(inner,withNav){
+  return '<header class="topbar"><div class="logo"><b>PIT<em>LANE</em></b><span class="chq"></span></div>'+
+  '<div style="flex:1"></div>'+(withNav
+    ?'<button class="lockbtn" onclick="enterPrestige()"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>PRESTIGE</button>'
+    :'<span class="eyebrow">launch season</span>')+'</header>'+
+  '<main class="screen">'+inner+'</main>'+(withNav?navHTML():'');
+}
+function navHTML(){
+  const items=[['market','Market'],['events','Events'],['SELL',''],['chat','Chat'],['profile','Profile']];
+  return '<nav>'+items.map(([k,lab])=>{
+    if(k==='SELL')return '<button class="sellbtn" onclick="startWizard()" aria-label="Sell a vehicle">'+icon('plus')+'</button>';
+    return '<button class="'+(tab===k?'on':'')+'" onclick="setTab(\''+k+'\')">'+icon(k)+lab+'</button>';
+  }).join('')+'</nav>';
+}
+
+/* =================== AUTH =================== */
+function vWelcome(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<div class="chq" style="width:64px;margin-bottom:22px"></div>'+
+  '<h1 class="wordmark">Buy it.<br>Build it.<br><em>Race it.</em></h1>'+
+  '<p style="color:var(--mut);margin:16px 0 6px;max-width:34ch">The marketplace built by the racing scene, for the racing scene. Cars, bikes, quads, skis, engines — if it doesn\'t rev, it doesn\'t list.</p>'+
+  '<p class="eyebrow" style="margin:10px 0 28px">Real names · Real photos · Real builds</p>'+
+  '<button class="btn" onclick="go(\'auth-signup\')">Create account</button>'+
+  '<button class="btn ghost" style="margin-top:10px" onclick="demoLogin()">Enter as Trippzy — Founder</button>'+
+  '<p class="hint" style="text-align:center;margin-top:22px">Prototype build v0.1 — data lives on this device only.</p></div>';
+}
+function vSignup(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<button class="back" onclick="go(\'auth-welcome\')">&#8592; Back</button>'+
+  '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Join the grid</h1>'+
+  '<p style="color:var(--mut);font-size:14px;margin-bottom:20px">PitLane runs on real identities. Your legal name stays on file; the scene sees your nickname.</p>'+
+  '<div class="row2"><div class="field"><label for="f_first">First name</label><input id="f_first" autocomplete="given-name"></div>'+
+  '<div class="field"><label for="f_last">Last name</label><input id="f_last" autocomplete="family-name"></div></div>'+
+  '<div class="field"><label for="f_nick">Nickname — your scene name</label><input id="f_nick" placeholder="e.g. NightShift, BoostedMarv" maxlength="20"></div>'+
+  '<div class="field"><label for="f_email">Email</label><input id="f_email" type="email" autocomplete="email"><p class="hint">We\'ll send a 6-digit code to verify it.</p></div>'+
+  '<div class="field"><label for="f_pw">Password</label><input id="f_pw" type="password" autocomplete="new-password"></div>'+
+  '<label class="rules"><input type="checkbox" id="f_rules"><span>I agree to the <b>PitLane Rules</b>: real photos of my actual vehicle, accurate title status, lawful sales only, and community events at sanctioned venues. Listings that break the rules get black-flagged.</span></label>'+
+  '<button class="btn" onclick="signup()">Send verification code</button></div>';
+}
+function signup(){
+  const first=$('#f_first').value.trim(),last=$('#f_last').value.trim(),
+        nick=$('#f_nick').value.trim(),email=$('#f_email').value.trim(),pw=$('#f_pw').value;
+  if(!first||!last)return toast('Real first and last name are required.');
+  if(!nick)return toast('Pick a nickname — that\'s your scene name.');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return toast('Enter a valid email.');
+  if(pw.length<6)return toast('Password needs 6+ characters.');
+  if(!$('#f_rules').checked)return toast('You have to accept the PitLane Rules.');
+  const code=String(Math.floor(100000+Math.random()*900000));
+  pend={first,last,nick,email,code};
+  go('auth-verify');
+}
+function vVerify(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<button class="back" onclick="go(\'auth-signup\')">&#8592; Back</button>'+
+  '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Check your inbox</h1>'+
+  '<p style="color:var(--mut);font-size:14px">We sent a 6-digit code to <b style="color:var(--text)">'+esc(pend.email)+'</b>. Enter it to verify your account.</p>'+
+  '<div class="code6">'+[0,1,2,3,4,5].map(i=>'<input maxlength="1" inputmode="numeric" id="c'+i+'" oninput="hopNext(this,'+i+')">').join('')+'</div>'+
+  '<div class="launchnote"><b>Prototype note:</b> in the live app this code arrives by real email. For this demo your code is <b class="mono">'+pend.code+'</b>.</div>'+
+  '<button class="btn" onclick="verify()">Verify &amp; enter PitLane</button></div>';
+}
+function hopNext(el,i){if(el.value&&i<5)$('#c'+(i+1)).focus()}
+function verify(){
+  const got=[0,1,2,3,4,5].map(i=>$('#c'+i).value).join('');
+  if(got!==pend.code)return toast('Wrong code — check it and try again.');
+  const id='u'+Date.now();
+  S.users[id]={id,first:pend.first,last:pend.last,nick:pend.nick,email:pend.email,
+    verified:true,rating:0,sales:0,joined:'2026-07',xp:0,prestige:0,completed:{},pending:[]};
+  S.me=id;save();pend=null;tab='market';view={name:'tab'};render();
+  toast('Verified. Welcome to the grid, '+S.users[id].nick+' 🏁');
+}
+function demoLogin(){S.me='trippzy';save();tab='market';view={name:'tab'};render();
+  toast('Signed in as Trippzy — Founder');}
+
+/* =================== MARKET =================== */
+function vMarket(){
+  const q=(S._q||'').toLowerCase(),cat=S._cat||'all';
+  let ls=S.listings.filter(l=>(cat==='all'||l.cat===cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q)));
+  const feat=ls.filter(l=>l.boosted);
+  return '<input placeholder="Search the grid — Supra, K24, CBR…" value="'+esc(S._q||'')+'" oninput="S._q=this.value;render()" style="margin-bottom:12px">'+
+  '<div class="chips">'+CATS.map(([k,lab])=>'<button class="chip '+(cat===k?'on':'')+'" onclick="S._cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
+  (feat.length?'<div class="shead"><h2><s>Featured</s> — Pole position</h2><span class="badge f">BOOSTED</span></div>'+
+    '<div class="featrow">'+feat.map(cardHTML).join('')+'</div>':'')+
+  '<div class="shead"><h2>The paddock</h2><span class="eyebrow">'+ls.length+' live</span></div>'+
+  (ls.length?'<div class="grid">'+ls.map(cardHTML).join('')+'</div>'
+    :'<div class="empty">Nothing in this lane yet.<br>Be the first to list.</div>');
+}
+function cardHTML(l){
+  const u=S.users[l.seller];
+  return '<button class="lcard" onclick="go(\'listing\',\''+l.id+'\')"><div class="ph">'+art(l)+
+  (l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':'')+'</div>'+
+  '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
+  '<div class="meta">'+esc(l.loc)+(u.verified?' · <span style="color:var(--green)">✓ '+esc(u.nick)+'</span>':' · '+esc(u.nick))+'</div></div></button>';
+}
+
+/* =================== LISTING DETAIL =================== */
+function vListing(id){
+  const l=S.listings.find(x=>x.id===id);if(!l)return '<div class="empty">Listing not found.</div>';
+  const u=S.users[l.seller],mine=l.seller===S.me;
+  const shots=SHOTS.map((s,i)=>'<div class="lcard" style="flex:0 0 150px"><div class="ph">'+art(l,s)+'</div></div>').join('');
+  return '<button class="back" onclick="setTab(\'market\')">&#8592; Market</button>'+
+  '<div class="card" style="overflow:hidden;margin-bottom:14px"><div style="aspect-ratio:16/10;position:relative">'+art(l)+
+  (l.boosted?'<span class="badge f" style="position:absolute;top:10px;right:10px">★ BOOSTED</span>':'')+'</div></div>'+
+  '<div style="display:flex;align-items:flex-start;gap:10px"><div style="flex:1">'+
+  '<div class="price" style="font-size:24px">'+fmt(l.price)+'</div>'+
+  '<h1 style="font-size:18px;font-weight:700;margin-top:2px">'+esc(l.title)+'</h1>'+
+  '<p class="hint">'+esc(l.loc)+' · listed '+esc(l.posted)+' · <span class="badge cat">'+esc(CATS.find(c=>c[0]===l.cat)[1])+'</span></p></div></div>'+
+  '<div class="shead"><h2>Required shots</h2><span class="badge v">✓ 6 / 6 VERIFIED SET</span></div>'+
+  '<div class="featrow">'+shots+'</div>'+
+  '<p class="hint">Every PitLane listing requires these six real photos — no stock images allowed.</p>'+
+  '<div class="shead"><h2>Spec sheet</h2></div>'+
+  '<table class="spec"><tr><td>VIN / Serial</td><td>'+maskVIN(esc(l.vin))+'</td></tr>'+
+  '<tr><td>Miles</td><td>'+(l.miles?l.miles.toLocaleString():'—')+'</td></tr>'+
+  '<tr><td>Title</td><td style="text-transform:capitalize">'+esc(l.titleStatus)+'</td></tr></table>'+
+  '<div class="shead"><h2>Mods &amp; work done</h2></div>'+
+  '<ul style="padding-left:20px;color:#C6CDD9;font-size:14.5px;display:grid;gap:6px">'+
+  l.mods.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul>'+
+  '<div class="shead"><h2>Seller\'s words</h2></div><p style="color:#C6CDD9;font-size:14.5px;max-width:60ch">'+esc(l.desc)+'</p>'+
+  '<div class="shead"><h2>Seller</h2></div>'+
+  '<button class="card thread" style="width:100%;text-align:left" onclick="go(\'user\',\''+u.id+'\')">'+
+  '<div class="ava">'+esc(u.nick[0])+'</div><div style="flex:1"><b>'+esc(u.nick)+'</b> '+
+  (u.verified?'<span class="badge v">✓ VERIFIED</span>':'')+(u.founder?' <span class="badge founder">FOUNDER</span>':'')+
+  '<div class="hint">'+esc(u.first)+' '+esc(u.last)+' · <span class="stars">'+stars(u.rating)+'</span> · '+u.sales+' sales</div>'+
+  '<div class="hint" style="display:flex;align-items:center;gap:5px;margin-top:3px">'+rankLine(u)+'</div></div>'+
+  '<span style="color:var(--mut)">›</span></button>'+
+  '<div style="display:flex;gap:10px;margin-top:16px">'+
+  (mine
+    ?(l.boosted?'<button class="btn ghost" disabled>★ Already boosted</button>'
+      :'<button class="btn amber" onclick="boostModal(\''+l.id+'\')">★ Boost this listing</button>')
+    :'<button class="btn" onclick="msgSeller(\''+l.id+'\')">Message '+esc(u.nick)+'</button>')+
+  '</div><button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
+}
+function msgSeller(lid){
+  const l=S.listings.find(x=>x.id===lid);
+  let t=S.threads.find(t=>t.listing===lid&&t.users.includes(S.me));
+  if(!t){t={id:'t'+Date.now(),listing:lid,users:[S.me,l.seller],msgs:[]};S.threads.unshift(t);save();}
+  go('convo',t.id);
+}
+
+/* =================== BOOST / REPORT =================== */
+function boostModal(lid){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><div class="chq" style="width:48px;margin-bottom:14px"></div>'+
+  '<h2 class="disp" style="font-size:22px">Pole position</h2>'+
+  '<p style="color:var(--mut);font-size:14px;margin:8px 0 14px">Boosted listings ride at the top of the market and in the Featured row for 7 days. Faster eyes, faster sale.</p>'+
+  '<div class="launchnote"><b>Launch season:</b> boosts are <b>FREE</b> right now. Regular price <s class="mono">$15</s> kicks in after launch.</div>'+
+  '<button class="btn amber" id="doboost">★ Boost for free</button>'+
+  '<button class="btn line" style="margin-top:10px" onclick="this.closest(\'.overlay\').remove()">Not now</button></div>';
+  document.body.appendChild(ov);
+  $('#doboost').onclick=()=>{const l=S.listings.find(x=>x.id===lid);l.boosted=true;save();ov.remove();render();
+    toast('Boosted — you\'re on pole. 🏁');award('boost')};
+}
+function reportModal(lid){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Black-flag this listing</h2>'+
+  '<p style="color:var(--mut);font-size:13.5px;margin:8px 0 14px">Reports go straight to the PitLane crew. Sellers who fake photos or title status get removed.</p>'+
+  ['Stock or stolen photos','Wrong title status / VIN','Scam or off-platform payment push','Stolen vehicle or parts','Other']
+    .map(r=>'<button class="btn ghost" style="margin-bottom:8px" onclick="this.closest(\'.overlay\').remove();toast(\'Report sent. The crew is on it.\')">'+r+'</button>').join('')+
+  '<button class="btn line" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+
+/* =================== SELL WIZARD =================== */
+function startWizard(){W={step:1,cat:'cars',photos:{},data:{}};go('wizard')}
+function wSet(k,v){W.data[k]=v}
+function vWizard(){
+  const bar='<div class="steps">'+[1,2,3,4].map(i=>'<i class="'+(i<=W.step?'on':'')+'"></i>').join('')+'</div>';
+  let body='';
+  if(W.step===1)body=
+    '<h1 class="disp" style="font-size:24px">What are you selling?</h1>'+
+    '<p class="hint" style="margin-bottom:14px">If it doesn\'t have an engine, it doesn\'t belong here.</p>'+
+    '<div class="chips" style="flex-wrap:wrap">'+CATS.slice(1).map(([k,lab])=>
+      '<button class="chip '+(W.cat===k?'on':'')+'" onclick="W.cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
+    '<div class="field"><label for="w_title">Listing title</label><input id="w_title" placeholder="e.g. 2002 Honda S2000 AP1" value="'+esc(W.data.title||'')+'" oninput="wSet(\'title\',this.value)"></div>'+
+    '<div class="field"><label for="w_model">Short model tag — shows on the card</label><input id="w_model" placeholder="e.g. S2000" maxlength="14" value="'+esc(W.data.model||'')+'" oninput="wSet(\'model\',this.value)"></div>'+
+    '<div class="row2"><div class="field"><label for="w_price">Price (USD)</label><input id="w_price" inputmode="numeric" placeholder="15000" value="'+esc(W.data.price||'')+'" oninput="wSet(\'price\',this.value)"></div>'+
+    '<div class="field"><label for="w_loc">City, State</label><input id="w_loc" placeholder="Mesa, AZ" value="'+esc(W.data.loc||'')+'" oninput="wSet(\'loc\',this.value)"></div></div>'+
+    '<button class="btn" onclick="wNext1()">Next — legit check</button>';
+  if(W.step===2)body=
+    '<h1 class="disp" style="font-size:24px">Legit check</h1>'+
+    '<p class="hint" style="margin-bottom:14px">Buyers see the last 6 of the VIN only. Fake numbers = permanent black flag.</p>'+
+    '<div class="field"><label for="w_vin">VIN / Serial number</label><input id="w_vin" class="mono" placeholder="17 characters for road vehicles" value="'+esc(W.data.vin||'')+'" oninput="wSet(\'vin\',this.value)"></div>'+
+    '<div class="field"><label for="w_miles">Miles (0 if not applicable)</label><input id="w_miles" inputmode="numeric" value="'+esc(W.data.miles||'')+'" oninput="wSet(\'miles\',this.value)"></div>'+
+    '<div class="field"><label for="w_titlest">Title status</label><select id="w_titlest" onchange="wSet(\'titleStatus\',this.value)">'+
+    ['clean','salvage','rebuilt','bonded','bill-of-sale','n/a'].map(o=>'<option '+(W.data.titleStatus===o?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    '<button class="btn" onclick="wNext2()">Next — required photos</button>'+
+    '<button class="btn line" style="margin-top:10px" onclick="W.step=1;render()">Back</button>';
+  if(W.step===3){
+    const done=Object.keys(W.photos).length;
+    body='<h1 class="disp" style="font-size:24px">Six real shots</h1>'+
+    '<p class="hint" style="margin-bottom:14px">Taken by you, of the actual machine. This is what makes PitLane listings trustworthy — no stock photos, ever.</p>'+
+    '<div class="photoslots">'+SHOTS.map((s,i)=>{
+      const p=W.photos[i];
+      return '<div class="slot '+(p?'done':'')+'">'+(p&&p!=='demo'?'<img src="'+p+'" alt="">':'')+
+      (p==='demo'?'<div class="art" style="background:linear-gradient(140deg,hsl(220 30% 24%),hsl(220 45% 10%))"><div class="stripes"></div></div>':'')+
+      '<span class="tag">'+(p?'✓ ':'')+s+'</span>'+
+      (p?'':'<span class="demo" onclick="W.photos['+i+']=\'demo\';render()">use demo shot</span>')+
+      (p?'':'<input type="file" accept="image/*" capture="environment" onchange="slotFile(this,'+i+')" aria-label="'+s+'">')+
+      '</div>'}).join('')+'</div>'+
+    '<p class="hint" style="margin:12px 0">'+done+' / 6 captured'+(done<6?' — all six are required to publish.':' — full set. ✓')+'</p>'+
+    '<button class="btn" '+(done<6?'disabled':'')+' onclick="W.step=4;render()">Next — mods &amp; story</button>'+
+    '<button class="btn line" style="margin-top:10px" onclick="W.step=2;render()">Back</button>';
+  }
+  if(W.step===4)body=
+    '<h1 class="disp" style="font-size:24px">Mods &amp; story</h1>'+
+    '<div class="field" style="margin-top:12px"><label for="w_mods">Mods / work done — one per line</label><textarea id="w_mods" rows="4" placeholder="Coilovers — brand&#10;Exhaust — brand&#10;Fresh clutch at 82k" oninput="wSet(\'mods\',this.value)">'+esc(W.data.mods||'')+'</textarea></div>'+
+    '<div class="field"><label for="w_desc">Description — the honest version</label><textarea id="w_desc" rows="4" placeholder="What\'s good, what needs work, why you\'re selling." oninput="wSet(\'desc\',this.value)">'+esc(W.data.desc||'')+'</textarea></div>'+
+    '<label class="rules"><input type="checkbox" id="w_legal"><span>I confirm I legally own this vehicle/part, the photos are mine, the VIN and title status are accurate, and the sale will follow all applicable laws including title transfer.</span></label>'+
+    '<button class="btn" onclick="publish()">Publish to the grid 🏁</button>'+
+    '<button class="btn line" style="margin-top:10px" onclick="W.step=3;render()">Back</button>';
+  return '<button class="back" onclick="if(confirm(\'Leave without publishing?\')){W=null;setTab(\'market\')}">&#8592; Cancel</button>'+bar+body;
+}
+function wNext1(){
+  const d=W.data;
+  if(!d.title||d.title.trim().length<6)return toast('Give it a real title — year, make, model.');
+  if(!d.model)return toast('Add the short model tag.');
+  if(!d.price||isNaN(+d.price)||+d.price<=0)return toast('Enter a real asking price.');
+  if(!d.loc)return toast('Where is it located?');
+  W.step=2;render();
+}
+function wNext2(){
+  const d=W.data;
+  if(!d.vin||d.vin.trim().length<5)return toast('VIN / serial is required — that\'s the legit check.');
+  if(d.miles===undefined||d.miles==='')return toast('Enter miles (0 if it doesn\'t apply).');
+  if(!d.titleStatus)d.titleStatus='clean';
+  W.step=3;render();
+}
+function slotFile(inp,i){
+  const f=inp.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{W.photos[i]=rd.result;render()};
+  rd.readAsDataURL(f);
+}
+function publish(){
+  if(!$('#w_legal').checked)return toast('You must confirm ownership and accuracy first.');
+  const d=W.data,[h1,h2]=HUES[W.cat];
+  const real=Object.values(W.photos).filter(p=>p!=='demo');
+  S.listings.unshift({id:'l'+Date.now(),seller:S.me,cat:W.cat,title:d.title.trim(),
+    model:(d.model||'').toUpperCase(),price:+d.price,loc:d.loc,miles:+(d.miles||0),
+    titleStatus:d.titleStatus||'clean',vin:d.vin.trim().toUpperCase(),
+    mods:(d.mods||'').split('\n').map(s=>s.trim()).filter(Boolean),
+    desc:d.desc||'',boosted:false,hue:h1+Math.floor(Math.random()*(h2-h1)),
+    photos:real.length?real:null,posted:'Jul 2026'});
+  save();
+  award('first_listing');award('lister');
+  if(real.length>=6)award('full_set');
+  W=null;S._cat='all';S._q='';setTab('market');
+  toast('Live on the grid. Boost it for free while launch season lasts ★');
+}
+
+/* =================== EVENTS =================== */
+const ETYPES={meet:['Car Meet','cat'],track:['Track Day','v'],drag:['Drag Night','f'],dyno:['Dyno Day','cat'],cruise:['Cruise','cat']};
+function vEvents(){
+  return '<div class="shead" style="margin-top:4px"><h2><s>Community</s> — Where the scene meets</h2></div>'+
+  '<div class="launchnote">All PitLane events run at <b>sanctioned venues</b> — tracks, strips, private lots with permission. Keep it legal, keep the scene alive.</div>'+
+  S.events.map(ev=>{
+    const going=ev.going.includes(S.me),host=S.users[ev.host];
+    const [lab,cls]=ETYPES[ev.type]||['Event','cat'];
+    return '<div class="card ecard"><div class="edate"><span>'+esc(ev.mo)+'</span><b>'+esc(ev.day)+'</b></div>'+
+    '<div style="flex:1"><span class="badge '+cls+'">'+lab.toUpperCase()+'</span>'+
+    '<h3 style="margin-top:6px">'+esc(ev.title)+'</h3>'+
+    '<div class="meta">'+esc(ev.when)+' · '+esc(ev.venue)+'<br>Hosted by <b>'+esc(host?host.nick:'?')+'</b>'+(host&&host.founder?' <span class="badge founder">FOUNDER</span>':'')+'</div>'+
+    '<p style="font-size:13.5px;color:#C6CDD9;margin-bottom:10px">'+esc(ev.desc)+'</p>'+
+    '<div style="display:flex;gap:8px;align-items:center">'+
+    '<button class="btn sm '+(going?'ghost':'')+'" onclick="rsvp(\''+ev.id+'\')">'+(going?'✓ You\'re in':'RSVP — I\'m pulling up')+'</button>'+
+    '<span class="hint">'+(ev.going.length+(going?0:0))+' going</span></div></div></div>';
+  }).join('')+
+  '<button class="btn ghost" style="margin-top:6px" onclick="go(\'event-new\')">+ Host an event</button>';
+}
+function rsvp(id){
+  const ev=S.events.find(e=>e.id===id);
+  const i=ev.going.indexOf(S.me);
+  if(i>=0){ev.going.splice(i,1);toast('RSVP pulled.')}else{ev.going.push(S.me);toast('Locked in. See you there 🏁');award('rsvp')}
+  save();render();
+}
+function vEventNew(){
+  return '<button class="back" onclick="setTab(\'events\')">&#8592; Events</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:6px 0 4px">Host an event</h1>'+
+  '<p class="hint" style="margin-bottom:16px">Meets, track days, legal drag nights, dyno days, cruises.</p>'+
+  '<div class="field"><label for="e_type">Type</label><select id="e_type">'+
+  Object.entries(ETYPES).map(([k,[lab]])=>'<option value="'+k+'">'+lab+'</option>').join('')+'</select></div>'+
+  '<div class="field"><label for="e_title">Event name</label><input id="e_title" placeholder="e.g. Sunday Coffee & Cams"></div>'+
+  '<div class="row2"><div class="field"><label for="e_mo">Month</label><input id="e_mo" placeholder="AUG" maxlength="3"></div>'+
+  '<div class="field"><label for="e_day">Day</label><input id="e_day" placeholder="16" maxlength="2" inputmode="numeric"></div></div>'+
+  '<div class="field"><label for="e_venue">Venue</label><input id="e_venue" placeholder="Track / strip / lot name"></div>'+
+  '<div class="field"><label for="e_desc">Details</label><textarea id="e_desc" rows="3" placeholder="Time, rules, cost at the gate…"></textarea></div>'+
+  '<label class="rules"><input type="checkbox" id="e_legal"><span>This event is at a <b>sanctioned venue</b> with permission — a track, strip, or private property. PitLane does not host or promote illegal street activity.</span></label>'+
+  '<button class="btn" onclick="newEvent()">Post event</button>';
+}
+function newEvent(){
+  const t=$('#e_title').value.trim(),mo=$('#e_mo').value.trim().toUpperCase(),
+        day=$('#e_day').value.trim(),ven=$('#e_venue').value.trim();
+  if(!t||!mo||!day||!ven)return toast('Name, date, and venue are all required.');
+  if(!$('#e_legal').checked)return toast('Confirm the venue is sanctioned first.');
+  S.events.unshift({id:'e'+Date.now(),host:S.me,type:$('#e_type').value,title:t,
+    when:mo+' '+day,mo,day,venue:ven,desc:$('#e_desc').value.trim(),going:[S.me]});
+  save();award('host');setTab('events');toast('Event posted. Spread the word 📣');
+}
+
+/* =================== CHAT =================== */
+function vChat(){
+  const mine=S.threads.filter(t=>t.users.includes(S.me));
+  if(!mine.length)return '<div class="shead" style="margin-top:4px"><h2>Pit radio</h2></div>'+
+    '<div class="empty">No conversations yet.<br>Message a seller from any listing.</div>';
+  return '<div class="shead" style="margin-top:4px"><h2>Pit radio</h2></div>'+
+  mine.map(t=>{
+    const other=S.users[t.users.find(u=>u!==S.me)]||{nick:'?'};
+    const l=S.listings.find(x=>x.id===t.listing);
+    const last=t.msgs[t.msgs.length-1];
+    return '<button class="card thread" style="width:100%;text-align:left;margin-bottom:10px" onclick="go(\'convo\',\''+t.id+'\')">'+
+    '<div class="ava">'+esc(other.nick[0])+'</div><div style="flex:1;min-width:0">'+
+    '<b>'+esc(other.nick)+'</b> <span class="hint">· '+esc(l?l.model:'')+'</span>'+
+    '<div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(last?last.text:'Say what\'s up')+'</div>'+
+    '</div><span style="color:var(--mut)">›</span></button>';
+  }).join('');
+}
+function vConvo(tid){
+  const t=S.threads.find(x=>x.id===tid);if(!t)return '<div class="empty">Conversation not found.</div>';
+  const other=S.users[t.users.find(u=>u!==S.me)]||{nick:'?'};
+  const l=S.listings.find(x=>x.id===t.listing);
+  return '<button class="back" onclick="setTab(\'chat\')">&#8592; Pit radio</button>'+
+  '<div class="card thread" style="margin-bottom:4px"><div class="ava">'+esc(other.nick[0])+'</div>'+
+  '<div><b>'+esc(other.nick)+'</b>'+(other.verified?' <span class="badge v">✓</span>':'')+
+  '<div class="hint">about: '+esc(l?l.title:'')+' · '+(l?fmt(l.price):'')+'</div></div></div>'+
+  '<div class="msgs" style="padding-bottom:90px">'+t.msgs.map(m=>
+    '<div class="msg '+(m.from===S.me?'me':'them')+'">'+esc(m.text)+'<time>'+esc(m.t)+'</time></div>').join('')+'</div>'+
+  '<div class="composer"><input id="cmp" placeholder="Message '+esc(other.nick)+'…" onkeydown="if(event.key===\'Enter\')sendMsg(\''+tid+'\')">'+
+  '<button onclick="sendMsg(\''+tid+'\')" aria-label="Send">➤</button></div>';
+}
+function sendMsg(tid){
+  const el=$('#cmp'),txt=el.value.trim();if(!txt)return;
+  const t=S.threads.find(x=>x.id===tid);
+  const now=new Date(),hh=((now.getHours()+11)%12+1),mm=String(now.getMinutes()).padStart(2,'0'),
+        ap=now.getHours()>=12?'PM':'AM';
+  t.msgs.push({from:S.me,text:txt,t:hh+':'+mm+' '+ap});
+  save();award('first_msg');render();
+  const other=t.users.find(u=>u!==S.me);
+  if(other&&S.users[other]&&!t._replied){t._replied=true;
+    setTimeout(()=>{t.msgs.push({from:other,text:'Got it — let me get back to you in a bit. 👍',t:hh+':'+mm+' '+ap});
+      save();if(view.name==='convo'&&view.arg===tid)render();},1400);}
+}
+
+/* =================== PROFILE =================== */
+function vProfile(){return vUser(S.me,true)}
+function rankCard(u,self){
+  const {l,into,next}=u.master?{l:MAXLVL,into:1,next:1}:lvlOf(u.xp||0);
+  const pct=u.master?100:Math.min(100,Math.round(into/next*100));
+  const head=u.master
+    ?'<div class="ranktitle" style="color:#FFD34D">Master Prestige</div>'+
+     '<p class="hint">The ultimate rank. Every prestige conquered.</p>'
+    :'<div class="ranktitle">'+(u.prestige?'Prestige '+u.prestige+' — '+PNAMES[u.prestige]:'No prestige yet')+'</div>'+
+     '<p class="hint">Level '+l+' / '+MAXLVL+' · '+titleOf(l)+(u.master?'':' · '+(next-into)+' XP to next level')+'</p>';
+  return '<div class="card rankcard'+(u.master?' master':'')+'"><div class="rrow">'+
+  emblem(u.prestige,56,u.master)+'<div style="flex:1;min-width:0">'+head+
+  '<div class="xpbar"><i style="width:'+pct+'%"></i></div></div></div>'+
+  (self&&!u.master&&l>=MAXLVL
+    ?'<button class="btn amber" style="margin-top:14px" onclick="prestigeUp()">'+
+      ((u.prestige||0)>=10?'👑 Claim MASTER PRESTIGE':'Enter Prestige '+((u.prestige||0)+1)+' — reset to Rookie')+'</button>':'')+
+  '</div>';
+}
+function missionsHTML(u){
+  return '<div class="shead"><h2><s>Missions</s> — Earn your stripes</h2></div>'+
+  MISSIONS.map(m=>{
+    const done=m.once&&u.completed[m.id],pend=(u.pending||[]).includes(m.id),count=u.completed[m.id]||0;
+    let right;
+    if(done&&!m.auto||done&&m.once)right='<span class="badge v">✓ DONE</span>';
+    else if(pend)right='<span class="badge f">UNDER REVIEW</span>';
+    else if(m.auto)right='<span class="hint">auto'+(count&&!m.once?' ×'+count:'')+'</span>';
+    else right='<button class="btn sm ghost" onclick="submitProof(\''+m.id+'\')">Submit proof</button>';
+    return '<div class="card mission'+(done?' done':pend?' pend':'')+'"><div class="mi"><b>'+m.t+'</b><p>'+m.d+'</p></div>'+
+    '<span class="xp">+'+m.xp+' XP</span>'+right+'</div>';
+  }).join('')+
+  '<p class="hint" style="margin:4px 0 8px">Auto missions pay out the moment you do the thing. Proof missions get reviewed by the PitLane crew before the XP lands.</p>';
+}
+function vUser(uid,self){
+  const u=S.users[uid];if(!u)return '<div class="empty">User not found.</div>';
+  const garage=S.listings.filter(l=>l.seller===uid);
+  return (self?'':'<button class="back" onclick="setTab(\'market\')">&#8592; Back</button>')+
+  '<div style="display:flex;gap:14px;align-items:center;margin:14px 0 4px">'+
+  '<div class="ava" style="width:64px;height:64px;font-size:24px;flex:0 0 64px">'+esc(u.nick[0])+'</div>'+
+  '<div><h1 class="disp" style="font-size:24px">'+esc(u.nick)+'</h1>'+
+  '<p class="hint">'+esc(u.first)+' '+esc(u.last)+' · on the grid since '+esc(u.joined)+'</p>'+
+  '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
+  (u.master?'<span class="badge masterbadge">👑 MASTER PRESTIGE</span>':'')+
+  (u.founder?'<span class="badge founder">FOUNDER</span>':'')+
+  (u.verified?'<span class="badge v">✓ EMAIL VERIFIED</span>':'<span class="badge cat">UNVERIFIED</span>')+
+  '</div></div></div>'+
+  rankCard(u,self)+
+  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0">'+
+  '<div class="stat"><b>'+garage.length+'</b><span>listings</span></div>'+
+  '<div class="stat"><b>'+u.sales+'</b><span>sales</span></div>'+
+  '<div class="stat"><b class="stars" style="font-size:15px">'+(u.rating?stars(u.rating):'—')+'</b><span>rating</span></div></div>'+
+  (self&&u.founder?'<div class="launchnote"><b>Founder account.</b> You run PitLane. Boosts, featured slots and verified tiers are all FREE during launch season — flip on pricing when the grid fills up.</div>':'')+
+  (self?missionsHTML(u):'')+
+  '<div class="shead"><h2>'+(self?'My garage':'Their garage')+'</h2></div>'+
+  (garage.length?'<div class="grid">'+garage.map(cardHTML).join('')+'</div>'
+    :'<div class="empty">Empty garage — nothing listed yet.</div>')+
+  (self?'<button class="btn ghost" style="margin-top:18px" onclick="startWizard()">+ List something</button>'+
+   '<button class="btn line" style="margin-top:10px" onclick="logout()">Sign out</button>'+
+   '<p class="hint" style="text-align:center;margin-top:18px">PitLane v0.1 prototype · lawful sales only · events at sanctioned venues only</p>':'');
+}
+function logout(){S.me=null;save();view={name:'auth-welcome'};render()}
+
+/* =================== PRESTIGE WORLD =================== */
+const CLUB_DEFAULT='redline';
+const QR_URI='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAAFKCAIAAAD0S4FSAAAGVElEQVR4nO3dMW4cORBAUWvhM+zc/3jtWFCgaC9gNGBx6WJ/vZePpmekDyooFN/ePz5/AEX/TD8AsIu8IUvekCVvyJI3ZMkbsuQNWfKGLHlDlrwhS96QJW/IkjdkyRuy5A1Z8oYseUOWvCFL3pD1c+XFr9e/P1qu69eBn3fqqVbe9/61+3y3v8l7Tm/IkjdkyRuy5A1Z8oYseUOWvCFL3pAlb8hamlq7NzW3dO/MGa8nTmKt/H5XPtHK+17f7G/S6Q1Z8oYseUOWvCFL3pAlb8iSN2TJG7LkDVkbp9bOnB6bsu+ppibA9untabuGPpHTG7LkDVnyhix5Q5a8IUvekCVvyJI3ZMkbssam1p5o3za1fXdx3r/2zDmtM+8efSKnN2TJG7LkDVnyhix5Q5a8IUvekCVvyJI3ZJla+wNT02NTM21T83Dm0v4vTm/IkjdkyRuy5A1Z8oYseUOWvCFL3pAlb8gam1p74mTSvmeeuj905X33zcNNuY58qhVOb8iSN2TJG7LkDVnyhix5Q5a8IUvekCVvyNo4tbbv9skpU5NY+zai7XvfFfve95X7m7zn9IYseUOWvCFL3pAlb8iSN2TJG7LkDVnyhqylqbXebqozP2/ve57aAPfdOL0hS96QJW/IkjdkyRuy5A1Z8oYseUOWvCHr7f3j88svthPr79yY+d02hK3Yt4ntGvodrXwipzdkyRuy5A1Z8oYseUOWvCFL3pAlb8iSN2Q9ctfaE++m3PfM+6apzpzT2nfn6ZR9fxtOb8iSN2TJG7LkDVnyhix5Q5a8IUvekCVvyFqaWjtzbmlq1mrfxNuZnviJriPn8PZxekOWvCFL3pAlb8iSN2TJG7LkDVnyhix5Q9bS1Nq9M2+9XHmqfVu+njgBtm+L277Xrpi6D9cNocBv+OccsuQNWfKGLHlDlrwhS96QJW/IkjdkbZxaO/O2zTP3aU3derlvp92KqV161wNnB+85vSFL3pAlb8iSN2TJG7LkDVnyhix5Q5a8Ievt/eNz5I2fOGs1tR/u3hM/0ROfeYpda8Bv+OccsuQNWfKGLHlDlrwhS96QJW/IkjdkLU2tnTk/NLWL68w7QKd2j03ttOvth7sWntnpDVnyhix5Q5a8IUvekCVvyJI3ZMkbsuQNWRtvCJ2aLVt533tnTkSt2DdNdeZs2b0zn2qF0xuy5A1Z8oYseUOWvCFL3pAlb8iSN2TJG7I2Tq3tm/KZ2qa24olP1fsNvo7ciLbve3Z6Q5a8IUvekCVvyJI3ZMkbsuQNWfKGLHlD1saptX2bur7bvZZPdOYnuoZm2laeaoXTG7LkDVnyhix5Q5a8IUvekCVvyJI3ZMkbst7ePz6//OKpSZ2piagz74h84rfRe+bryJ/s9IYseUOWvCFL3pAlb8iSN2TJG7LkDVnyhqyxqbV7UzNAT9y29cRpqhVP3Id3DX1XTm/IkjdkyRuy5A1Z8oYseUOWvCFL3pAlb8g6dGrtzOmiM2fapqbWVny3+1LvuSEU+GP+OYcseUOWvCFL3pAlb8iSN2TJG7LkDVk/ezdmnrkD7Mzv6omzZfu+ydcDt6ndc3pDlrwhS96QJW/IkjdkyRuy5A1Z8oYseUPW0tRabyfW1ETU1HzYylOducWtNzu4wukNWfKGLHlDlrwhS96QJW/IkjdkyRuy5A1ZS1Nr986cEJq69XLfT57aELZv4u3MnWfX0He1wukNWfKGLHlDlrwhS96QJW/IkjdkyRuy5A1ZG6fWetNjvb10U9NUK9/G1Df52vZd7fvJTm/IkjdkyRuy5A1Z8oYseUOWvCFL3pAlb8gam1rrOXMCbN982Jlbzc50Dd0A6/SGLHlDlrwhS96QJW/IkjdkyRuy5A1Z8oYsU2t/afZoarfcmfeHrrx26qmuocmzFU5vyJI3ZMkbsuQNWfKGLHlDlrwhS96QJW/IGpta6+3Tuje1a+3MmyvvnfnMrwdOvDm9IUvekCVvyJI3ZMkbsuQNWfKGLHlDlrwh6+394/PLLz5zv9SKlemiM+fwznzmJ26eu3fmb9/pDVnyhix5Q5a8IUvekCVvyJI3ZMkbsuQNWUtTa8DJnN6QJW/IkjdkyRuy5A1Z8oYseUOWvCFL3pAlb8iSN2TJG7LkDVnyhix5Q5a8IUvekCVvyJI3/Kj6D8bvMM5pHI9HAAAAAElFTkSuQmCC';
+const CARBRANDS=[
+ {b:'Honda',t:'car',c:'#E8362D',models:['Civic','Civic Type R','Civic Si','Integra','Integra Type R','S2000','NSX','Prelude','Accord'],emblems:['Type R','Si','VTEC'],title:'Honda Loyalist'},
+ {b:'Toyota',t:'car',c:'#EB0A1E',models:['Corolla','Supra','GR86','GR Corolla','Celica','MR2','Chaser'],emblems:['GR','TRD','2JZ'],title:'Toyota Faithful'},
+ {b:'Nissan',t:'car',c:'#C3002F',models:['Silvia S13','Silvia S14','Silvia S15','240SX','Skyline GT-R','GT-R R35','350Z','370Z','Z'],emblems:['GT-R','NISMO','SR20'],title:'Nissan Diehard'},
+ {b:'Subaru',t:'car',c:'#0F4C97',models:['Impreza WRX','WRX STI','BRZ','Legacy GT','Forester XT'],emblems:['STI','WRX','Boxer'],title:'Boxer Bred'},
+ {b:'Mazda',t:'car',c:'#243B53',models:['RX-7 FB','RX-7 FC','RX-7 FD','RX-8','MX-5 Miata','Mazdaspeed3'],emblems:['Rotary','13B','Speed'],title:'Rotary Head'},
+ {b:'Mitsubishi',t:'car',c:'#E60012',models:['Lancer Evo VIII','Lancer Evo IX','Evo X','Eclipse GSX','3000GT VR-4'],emblems:['Evo','Ralliart','4G63'],title:'Evo Runner'},
+ {b:'Ford',t:'car',c:'#00274E',models:['Mustang GT','Mustang GT500','Mustang Mach 1','Focus RS','Fiesta ST'],emblems:['GT500','ST','Coyote'],title:'Blue Oval'},
+ {b:'Chevrolet',t:'car',c:'#C7A24B',models:['Camaro SS','Camaro ZL1','Corvette C5','Corvette C6','Corvette C8','Cobalt SS'],emblems:['ZL1','SS','LS Swap'],title:'Bowtie'},
+ {b:'Dodge',t:'car',c:'#B4121B',models:['Challenger R/T','Charger Hellcat','Viper','Neon SRT-4'],emblems:['Hellcat','SRT','HEMI'],title:'Mopar Or No Car'},
+ {b:'BMW',t:'car',c:'#1C69D4',models:['E30 M3','E36 M3','E46 M3','E92 M3','F80 M3','M2','335i'],emblems:['M Power','///M','N54'],title:'Bimmer'},
+ {b:'Mercedes-AMG',t:'car',c:'#3A3A3A',models:['C63 AMG','E55 AMG','A45 AMG','SLK55'],emblems:['AMG','63','V8 Biturbo'],title:'Affalterbach'},
+ {b:'Audi',t:'car',c:'#BB0A30',models:['S4','RS3','RS6','TT RS','R8'],emblems:['RS','quattro','S line'],title:'Four Rings'},
+ {b:'Volkswagen',t:'car',c:'#001E50',models:['Golf GTI','Golf R','Jetta GLI','Corrado'],emblems:['GTI','R','VR6'],title:'Dub Life'},
+ {b:'Porsche',t:'car',c:'#B12B28',models:['911 Carrera','911 GT3','Cayman','944 Turbo'],emblems:['GT3','Turbo S','Flat-6'],title:'Stuttgart'},
+ {b:'Acura',t:'car',c:'#2B2B2B',models:['Integra Type R','RSX Type S','NSX','TL Type S'],emblems:['Type S','A-Spec'],title:'Precision'},
+ {b:'Lexus',t:'car',c:'#1A1A1A',models:['IS300','IS-F','RC-F','SC300'],emblems:['F Sport','2JZ'],title:'Quiet Luxury'},
+ {b:'Tesla',t:'car',c:'#E31937',models:['Model 3 Performance','Model S Plaid'],emblems:['Plaid','Ludicrous'],title:'Silent Kill'},
+ {b:'Yamaha',t:'moto',c:'#0033A0',models:['YZF-R1','YZF-R6','MT-09','YFZ450R'],emblems:['R1','YZF'],title:'Tuning Fork'},
+ {b:'Kawasaki',t:'moto',c:'#3FA535',models:['Ninja ZX-6R','Ninja ZX-10R','Ninja H2','SX-R'],emblems:['Ninja','H2'],title:'Team Green'},
+ {b:'Suzuki',t:'moto',c:'#003DA5',models:['GSX-R600','GSX-R750','GSX-R1000','Hayabusa'],emblems:['GSX-R','Busa'],title:'Gixxer'},
+ {b:'Ducati',t:'moto',c:'#CD1B24',models:['Panigale V2','Panigale V4','Monster','Streetfighter'],emblems:['V4','Corse'],title:'Ducatista'},
+ {b:'Honda Moto',t:'moto',c:'#E8362D',models:['CBR600RR','CBR1000RR','Grom','Ruckus'],emblems:['CBR','Fireblade'],title:'HRC'}
+];
+const RIMS=['Volk TE37','Enkei RPF1','BBS LM','Work Meister S1','Rotiform BLQ','HRE P101','Vossen CV3','Advan GT','Konig Hypergram','fifteen52 Tarmac','OZ Ultraleggera','Method MR305','American Racing','Sparco Assetto'];
+const RIMCOLORS=[['#B08D57','Bronze'],['#4A4E54','Gunmetal'],['#D4AF37','Gold'],['#C9CFD8','Silver'],['#1A1C20','Matte Black'],['#EDEFF2','White'],['#93999F','Polished'],['#2C6FB5','Blue']];
+const PAINTS=[['#E8362D','Redline Red'],['#111418','Midnight'],['#EDEFF2','Pearl White'],['#2C6FB5','Electric Blue'],['#39B26B','Slime Green'],['#F2B33D','Solar Orange'],['#6B4BA8','Plum Crazy'],['#9AA1AC','Nardo Grey'],['#7C1D1D','Blood'],['#0E7C6B','Teal']];
+const DRIVE=['FWD','RWD','AWD'];
+const STANCE=['Stock','Lowered','Slammed','Lifted'];
+const RACE_MILES=[[1,'First Blood',150],[10,'Ten Deep',400],[50,'Half-Ton Hitter',900],[100,'Century Club',1500],[500,'Five Hundred',3500],[1000,'Thousand Cuts',6000]];
+
+/* ---- gate ---- */
+function enterPrestige(){ if(unlocked){world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0)} else go('gate'); }
+function exitPrestige(){ world='market';tab='market';view={name:'tab'};render();window.scrollTo(0,0); }
+function doGate(){
+  const p=$('#gatepw').value;
+  if(p!==S.clubPass)return toast('Wrong password. Ask a member for the club code.');
+  unlocked=true;world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0);
+  toast('Welcome inside. 🔒 The paddock is yours.');
+}
+function vGate(){
+  return '<div class="gate"><div class="glow"></div>'+
+  '<button class="back" onclick="exitPrestige()">&#8592; Back to market</button>'+
+  '<div class="lockring"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>'+
+  '<h1 class="disp" style="font-size:34px;letter-spacing:-.02em">The Prestige<br>Paddock</h1>'+
+  '<p style="color:var(--mut);font-size:14px;margin:10px 0 4px;max-width:36ch">The members-only side. Ranks, garages, clans, and the live meet map live behind the lock. The marketplace stays open to the public — this doesn\'t.</p>'+
+  '<div class="field" style="margin-top:18px"><label for="gatepw">Club password</label>'+
+  '<input id="gatepw" type="password" placeholder="Enter the code" onkeydown="if(event.key===\'Enter\')doGate()"></div>'+
+  '<button class="btn amber" onclick="doGate()">Unlock the paddock</button>'+
+  '<div class="warn"><b>Straight talk:</b> in this prototype the lock is a curtain, not a vault — a static web page can\'t truly hide data from someone determined. Real privacy (and anything you\'d want kept from a subpoena) needs the phase-2 backend with server-side accounts. Don\'t treat this as legal cover. Demo code: <b class="mono">'+esc(S.clubPass)+'</b></div></div>';
+}
+
+/* ---- prestige shell / nav ---- */
+function setPTab(t){ptab=t;view={name:'prestige'};render();window.scrollTo(0,0)}
+function prestigeShell(){
+  const map={home:pHome,ranks:pRanks,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR};
+  const inner=(map[ptab]||pHome)();
+  const top='<header class="p-top"><div class="plogo">PIT<em>LANE</em> · <span style="color:var(--amber)">PADDOCK</span></div>'+
+    '<div style="flex:1"></div><button class="lockbtn" onclick="exitPrestige()">&#8592; MARKET</button></header>';
+  const me=S.users[S.me];
+  const items=[['home','Garage','profile'],['ranks','Ranks','events'],['MAP','',''],['clans','Clans','chat'],[me.master?'admin':'map',me.master?'Admin':'Map',me.master?'profile':'market']];
+  const nav='<nav class="pnav">'+items.map(([k,lab,ic])=>{
+    if(k==='MAP')return '<button class="sellbtn" onclick="setPTab(\'map\')" aria-label="Live map">'+mapIcon()+'</button>';
+    return '<button class="'+(ptab===k?'on':'')+'" onclick="setPTab(\''+k+'\')">'+icon(ic)+lab+'</button>';
+  }).join('')+'</nav>';
+  return top+'<main class="screen">'+inner+'</main>'+nav;
+}
+function mapIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'}
+
+/* ---- titles & emblems ---- */
+function brandOf(name){return CARBRANDS.find(x=>x.b===name)}
+function unlockedTitles(u){
+  const t=[titleOf(u.master?MAXLVL:lvlOf(u.xp||0).l)];
+  if(u.master)t.push('Master of the Grid');
+  if(u.founder)t.push('The Founder');
+  if(u.carBuild&&brandOf(u.carBuild.brand))t.push(brandOf(u.carBuild.brand).title);
+  (u.unlockedTitles||[]).forEach(x=>t.push(x));
+  return [...new Set(t)];
+}
+function unlockedEmblems(u){
+  const e=[];
+  if(u.master)e.push(['CROWN','#FFD34D']);
+  const L=u.master?MAXLVL:lvlOf(u.xp||0).l;
+  if(L>=1)e.push(['ROOKIE','#8B94A6']);
+  if(L>=10)e.push(['TUNED','#3DD68C']);
+  if(L>=20)e.push(['APEX','#FF5A4E']);
+  if(u.carBuild&&brandOf(u.carBuild.brand))brandOf(u.carBuild.brand).emblems.forEach(nm=>e.push([nm,brandOf(u.carBuild.brand).c]));
+  (u.unlockedEmblems||[]).forEach(x=>e.push(x));
+  const seen={};return e.filter(([n])=>seen[n]?false:(seen[n]=1));
+}
+function emblemArt(name,color,size){
+  const s=size||38,short=name.length>4?name.replace(/[^A-Z0-9]/gi,'').slice(0,4):name;
+  return '<span class="emblemart" style="width:'+s+'px;height:'+s+'px;font-size:'+(short.length>3?9:12)+'px;'+
+  'background:linear-gradient(135deg,'+color+','+shade(color)+')">'+esc(short.toUpperCase())+'</span>';
+}
+function shade(hex){try{const n=parseInt(hex.slice(1),16);let r=(n>>16)-30,g=((n>>8)&255)-30,b=(n&255)-30;
+  return 'rgb('+Math.max(0,r)+','+Math.max(0,g)+','+Math.max(0,b)+')'}catch(e){return hex}}
+
+/* ---- prestige home / garage ---- */
+function pHome(){
+  const u=S.users[S.me];
+  const eqTitle=u.eqTitle||unlockedTitles(u)[0];
+  const eqEmb=u.eqEmblem||unlockedEmblems(u)[0];
+  return '<div style="display:flex;gap:14px;align-items:center;margin:12px 0 6px">'+
+  '<div class="ava" style="width:66px;height:66px;font-size:24px;flex:0 0 66px;position:relative">'+esc(u.nick[0])+
+    (eqEmb?'<span style="position:absolute;bottom:-4px;right:-6px">'+emblemArt(eqEmb[0],eqEmb[1],26)+'</span>':'')+'</div>'+
+  '<div style="min-width:0"><h1 class="disp" style="font-size:23px">'+esc(u.nick)+'</h1>'+
+  '<p class="hint mono">'+esc(u.profileNo)+' · '+esc(u.first)+' '+esc(u.last)+'</p>'+
+  '<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">'+
+  (u.master?'<span class="badge masterbadge">👑 MASTER</span>':'')+
+  (u.founder?'<span class="badge founder">FOUNDER</span>':'')+
+  (u.clan?'<span class="badge cat">['+esc((S.clans.find(c=>c.id===u.clan)||{}).tag||'')+']</span>':'')+'</div></div></div>'+
+  (eqTitle?'<div class="titlebadge" style="margin:6px 0 2px">'+(eqEmb?emblemArt(eqEmb[0],eqEmb[1],22):'')+' '+esc(eqTitle)+'</div>':'')+
+  (u.bio?'<p style="color:#C6CDD9;font-size:14px;margin:10px 0">'+esc(u.bio)+'</p>':'')+
+  rankCard(u,true)+
+  '<div class="shead"><h2>My build</h2><button class="btn sm ghost" onclick="setPTab(\'build\')">'+(u.carBuild?'Edit build':'+ Build car')+'</button></div>'+
+  (u.carBuild?buildCard(u.carBuild):'<div class="card empty">No build yet.<br>Spec your ride exactly how it sits.</div>')+
+  (u.carPhotos&&u.carPhotos.length?'<div class="shead"><h2>Real shots</h2></div><div class="gallery">'+
+    u.carPhotos.map(p=>'<img src="'+p+'" alt="my car">').join('')+'</div>':'')+
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">'+
+  '<button class="btn ghost" onclick="setPTab(\'edit\')">Edit profile</button>'+
+  '<button class="btn ghost" onclick="setPTab(\'qr\')">My QR code</button></div>'+
+  (u.master?'<button class="btn amber" style="margin-top:10px" onclick="setPTab(\'admin\')">👑 Master control panel</button>':'')+
+  '<button class="btn line" style="margin-top:10px" onclick="exitPrestige()">Back to marketplace</button>';
+}
+
+/* ---- car side-profile SVG ---- */
+function carSVG(b){
+  const paint=b.paint||'#E8362D',rim=b.rimC||'#C9CFD8',glass='#0d1b2a';
+  const st=b.stance||'Stock',drop=st==='Slammed'?12:st==='Lowered'?7:st==='Lifted'?-10:0;
+  const moto=(brandOf(b.brand)||{}).t==='moto';
+  if(moto){
+    return '<svg viewBox="0 0 400 200" role="img" aria-label="motorcycle">'+
+    '<circle cx="96" cy="150" r="42" fill="#111" stroke="#333" stroke-width="3"/><circle cx="96" cy="150" r="20" fill="none" stroke="'+rim+'" stroke-width="5"/>'+
+    '<circle cx="308" cy="150" r="42" fill="#111" stroke="#333" stroke-width="3"/><circle cx="308" cy="150" r="20" fill="none" stroke="'+rim+'" stroke-width="5"/>'+
+    '<path d="M120 150 L180 120 L250 120 L288 150" stroke="#222" stroke-width="10" fill="none"/>'+
+    '<path d="M150 122 Q190 70 250 90 L280 120 Q250 128 200 128 Q170 132 150 122Z" fill="'+paint+'"/>'+
+    '<path d="M250 92 Q280 88 300 108 L300 122 L280 120Z" fill="'+glass+'"/>'+
+    '<path d="M120 150 Q118 128 150 122" stroke="'+paint+'" stroke-width="8" fill="none"/></svg>';
+  }
+  const by=118+ (drop<0?0:drop);           // body baseline shift for lowering
+  const lift=drop<0?-drop:0;
+  return '<svg viewBox="0 0 400 200" role="img" aria-label="'+esc(b.brand+' '+b.model)+'">'+
+  // wheels
+  '<g>'+
+  '<circle cx="98" cy="'+(150-lift)+'" r="34" fill="#0d0f12" stroke="#2a2e35" stroke-width="3"/>'+
+  '<circle cx="98" cy="'+(150-lift)+'" r="18" fill="none" stroke="'+rim+'" stroke-width="4"/>'+
+  spokes(98,150-lift,rim)+
+  '<circle cx="304" cy="'+(150-lift)+'" r="34" fill="#0d0f12" stroke="#2a2e35" stroke-width="3"/>'+
+  '<circle cx="304" cy="'+(150-lift)+'" r="18" fill="none" stroke="'+rim+'" stroke-width="4"/>'+
+  spokes(304,150-lift,rim)+'</g>'+
+  // body
+  '<path d="M26,'+(by)+' Q26,104 46,101 L92,96 Q110,66 152,60 L176,58 Q214,40 256,49 Q290,56 305,73 L338,99 Q368,103 374,117 L374,'+(by+6)+' Q374,'+(by+14)+' 364,'+(by+14)+' L40,'+(by+14)+' Q26,'+(by+14)+' 26,'+(by)+' Z" fill="'+paint+'" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/>'+
+  // greenhouse
+  '<path d="M150,64 Q188,48 246,55 L292,74 L178,74 Z" fill="'+glass+'" opacity=".92"/>'+
+  '<path d="M182,70 L246,58 L246,74 Z" fill="rgba(255,255,255,.06)"/>'+
+  // highlight
+  '<path d="M60,'+(by-4)+' L330,'+(by-4)+'" stroke="rgba(255,255,255,.18)" stroke-width="2" fill="none"/>'+
+  '<rect x="120" y="'+(by+2)+'" width="160" height="3" fill="rgba(0,0,0,.25)"/></svg>';
+}
+function spokes(cx,cy,c){let s='';for(let i=0;i<6;i++){const a=i*Math.PI/3;
+  s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+16*Math.cos(a))+'" y2="'+(cy+16*Math.sin(a))+'" stroke="'+c+'" stroke-width="2.5"/>'}
+  return s+'<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+c+'"/>'}
+function buildCard(b){
+  return '<div class="card buildcard"><div class="buildstage"><div class="floor"></div><div class="grid-lines"></div>'+
+  '<div class="buildhud">'+esc(b.year||'')+' <b>'+esc(b.brand)+' '+esc(b.model)+'</b></div>'+carSVG(b)+'</div>'+
+  '<div class="specgrid">'+
+  '<div><span>Power</span><b>'+esc(b.hp||'—')+' hp</b></div>'+
+  '<div><span>Drivetrain</span><b>'+esc(b.drive||'—')+'</b></div>'+
+  '<div><span>Wheels</span><b style="font-size:12px">'+esc(b.rim||'Stock')+'</b></div>'+
+  '<div><span>Stance</span><b style="font-size:13px">'+esc(b.stance||'Stock')+'</b></div></div>'+
+  ((b.mods||'').trim()?'<div style="padding:12px 14px"><span class="eyebrow">Mods</span><ul style="padding-left:18px;margin-top:6px;color:#C6CDD9;font-size:13.5px;display:grid;gap:4px">'+
+    b.mods.split('\n').filter(Boolean).map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>':'')+'</div>';
+}
+
+/* ---- car builder ---- */
+let CB=null;
+function pBuild(){
+  const u=S.users[S.me];
+  if(!CB)CB=Object.assign({brand:'Honda',model:'Civic Type R',year:'2024',paint:PAINTS[0][0],rim:RIMS[0],rimC:RIMCOLORS[0][0],stance:'Lowered',drive:'FWD',hp:'306',mods:''},u.carBuild||{});
+  const br=brandOf(CB.brand)||CARBRANDS[0];
+  return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 8px">Build your ride</h1>'+
+  '<p class="hint" style="margin-bottom:12px">Not a photo — spec it exactly like it sits in your driveway. Side profile updates live.</p>'+
+  buildCard(CB)+
+  '<div class="field" style="margin-top:16px"><label>Make</label><div class="pickrow">'+
+  CARBRANDS.map(x=>'<button class="pick '+(CB.brand===x.b?'on':'')+'" onclick="cbSet(\'brand\',\''+x.b+'\')">'+esc(x.b)+'</button>').join('')+'</div></div>'+
+  '<div class="field"><label>Model</label><div class="pickrow">'+
+  br.models.map(m=>'<button class="pick '+(CB.model===m?'on':'')+'" onclick="cbSet(\'model\',\''+esc(m)+'\')">'+esc(m)+'</button>').join('')+'</div></div>'+
+  '<div class="row2"><div class="field"><label>Year</label><input value="'+esc(CB.year)+'" oninput="CB.year=this.value" inputmode="numeric"></div>'+
+  '<div class="field"><label>Wheel HP</label><input value="'+esc(CB.hp)+'" oninput="CB.hp=this.value" inputmode="numeric"></div></div>'+
+  '<div class="field"><label>Paint</label><div class="swatches">'+
+  PAINTS.map(([c,n])=>'<button class="sw '+(CB.paint===c?'on':'')+'" style="background:'+c+'" title="'+n+'" onclick="cbSet(\'paint\',\''+c+'\')"></button>').join('')+'</div></div>'+
+  '<div class="field"><label>Wheel brand</label><div class="pickrow">'+
+  RIMS.map(r=>'<button class="pick '+(CB.rim===r?'on':'')+'" onclick="cbSet(\'rim\',\''+esc(r)+'\')">'+esc(r)+'</button>').join('')+'</div></div>'+
+  '<div class="field"><label>Wheel finish</label><div class="swatches">'+
+  RIMCOLORS.map(([c,n])=>'<button class="sw '+(CB.rimC===c?'on':'')+'" style="background:'+c+'" title="'+n+'" onclick="cbSet(\'rimC\',\''+c+'\')"></button>').join('')+'</div></div>'+
+  '<div class="field"><label>Stance</label><div class="pickrow">'+
+  STANCE.map(s=>'<button class="pick '+(CB.stance===s?'on':'')+'" onclick="cbSet(\'stance\',\''+s+'\')">'+s+'</button>').join('')+'</div></div>'+
+  '<div class="field"><label>Drivetrain</label><div class="pickrow">'+
+  DRIVE.map(d=>'<button class="pick '+(CB.drive===d?'on':'')+'" onclick="cbSet(\'drive\',\''+d+'\')">'+d+'</button>').join('')+'</div></div>'+
+  '<div class="field"><label>Mods — one per line</label><textarea rows="4" oninput="CB.mods=this.value" placeholder="Turbo — brand&#10;Coilovers — brand&#10;Tune — who did it">'+esc(CB.mods||'')+'</textarea></div>'+
+  '<button class="btn amber" onclick="saveBuild()">Save build</button>';
+}
+function cbSet(k,v){CB[k]=v; if(k==='brand'){const b=brandOf(v);CB.model=b.models[0];} render();}
+function saveBuild(){
+  const u=S.users[S.me];const first=!u.carBuild;u.carBuild=Object.assign({},CB);
+  const b=brandOf(CB.brand);
+  if(b){if(!u.unlockedTitles.includes(b.title))u.unlockedTitles.push(b.title);
+    b.emblems.forEach(nm=>{if(!u.unlockedEmblems.some(e=>e[0]===nm))u.unlockedEmblems.push([nm,b.c])});}
+  save();CB=null;
+  if(first&&!u.master)award('first_build');
+  setPTab('home');toast('Build saved — '+esc(CB2name(u.carBuild))+'. Unlocked: '+esc(b?b.title:'')+' title + emblems ★');
+}
+function CB2name(b){return (b.year?b.year+' ':'')+b.brand+' '+b.model}
+
+/* ---- edit profile (bio, photos, equip title/emblem) ---- */
+function pEdit(){
+  const u=S.users[S.me];
+  return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 12px">Edit profile</h1>'+
+  '<div class="field"><label>Bio</label><textarea rows="3" id="pbio" placeholder="Who you are in the scene…">'+esc(u.bio||'')+'</textarea></div>'+
+  '<div class="shead"><h2>Equipped title</h2></div><div class="pickrow" style="flex-wrap:wrap">'+
+  unlockedTitles(u).map(t=>'<button class="pick '+((u.eqTitle||unlockedTitles(u)[0])===t?'on':'')+'" onclick="equipTitle(\''+esc(t).replace(/'/g,"\\'")+'\')">'+esc(t)+'</button>').join('')+'</div>'+
+  '<div class="shead"><h2>Equipped emblem</h2></div><div class="embgrid">'+
+  unlockedEmblems(u).map(([n,c])=>{const on=(u.eqEmblem||unlockedEmblems(u)[0]||[])[0]===n;
+    return '<button class="emb '+(on?'on':'')+'" onclick="equipEmblem(\''+esc(n).replace(/'/g,"\\'")+'\',\''+c+'\')">'+emblemArt(n,c,34)+'<span class="ename">'+esc(n)+'</span></button>'}).join('')+'</div>'+
+  '<p class="hint" style="margin:6px 0">Unlock more emblems by building cars and ranking up.</p>'+
+  '<div class="shead"><h2>Car photos</h2></div><div class="gallery">'+
+  (u.carPhotos||[]).map((p,i)=>'<img src="'+p+'" alt="car" onclick="rmPhoto('+i+')" title="tap to remove">').join('')+
+  '<label class="add">+<input type="file" accept="image/*" onchange="addPhoto(this)"></label></div>'+
+  '<button class="btn amber" style="margin-top:16px" onclick="saveEdit()">Save profile</button>';
+}
+function equipTitle(t){S.users[S.me].eqTitle=t;save();render()}
+function equipEmblem(n,c){S.users[S.me].eqEmblem=[n,c];save();render()}
+function addPhoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{const u=S.users[S.me];u.carPhotos=u.carPhotos||[];u.carPhotos.push(r.result);save();render()};r.readAsDataURL(f)}
+function rmPhoto(i){const u=S.users[S.me];u.carPhotos.splice(i,1);save();render()}
+function saveEdit(){S.users[S.me].bio=$('#pbio').value;save();setPTab('home');toast('Profile saved.')}
+
+/* ---- ranks + races ---- */
+function pRanks(){
+  const u=S.users[S.me];
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Rank &amp; grind</h1>'+
+  rankCard(u,true)+
+  '<div class="shead"><h2><s>Races</s> — Prove it</h2><span class="badge f">'+u.races.wins+' WINS</span></div>'+
+  '<div class="card" style="padding:14px"><p style="font-size:13.5px;color:#C6CDD9;margin-bottom:10px">Log a win with a video and the crew verifies it. Wins climb the race ladder and drop serious XP.</p>'+
+  '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'+
+  RACE_MILES.map(([n,nm,xp])=>'<div class="stat" style="'+(u.races.wins>=n?'border-color:rgba(61,214,140,.5)':'')+'"><b style="font-size:16px'+(u.races.wins>=n?';color:var(--green)':'')+'">'+n+'</b><span>'+esc(nm)+'</span></div>').join('')+'</div>'+
+  '<button class="btn amber sm" onclick="raceModal()">+ Log a race win</button></div>'+
+  ((u.pending||[]).length||S.queue.some(q=>q.user===S.me)?'<p class="hint" style="margin:10px 2px">You have submissions under crew review.</p>':'')+
+  missionsHTML(u);
+}
+function raceModal(){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Log a race win</h2>'+
+  '<p style="color:var(--mut);font-size:13px;margin:8px 0 12px">Real proof only — a video link (timeslip, roll clip, track result). The crew reviews before it counts. Fake proof = black flag.</p>'+
+  '<div class="field"><label>Video / proof link</label><input id="rurl" placeholder="https://…"></div>'+
+  '<div class="field"><label>What happened</label><input id="rnote" placeholder="e.g. Won a track heat at Chuckwalla"></div>'+
+  '<button class="btn amber" onclick="submitRace()">Submit for review</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function submitRace(){
+  const url=$('#rurl').value.trim();if(!url)return toast('Add the proof link.');
+  S.queue.push({id:'q'+Date.now(),type:'race',user:S.me,videoUrl:url,note:$('#rnote').value.trim(),claim:1});
+  save();document.querySelector('.overlay').remove();render();toast('Submitted — the crew will verify it.');
+}
+/* override submitProof to route into admin queue too */
+function submitProof(mid){
+  const u=S.users[S.me];u.pending=u.pending||[];
+  if(u.pending.includes(mid))return;
+  u.pending.push(mid);
+  S.queue.push({id:'q'+Date.now(),type:'proof',user:S.me,mid});
+  save();render();toast('Proof submitted — the crew will review it.');
+}
+
+/* ---- clans ---- */
+function pClans(){
+  const u=S.users[S.me],mine=u.clan?S.clans.find(c=>c.id===u.clan):null;
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Clans</h1>'+
+  (mine?'<div class="card clanrow" style="border-color:'+mine.color+'55"><span class="clantag" style="background:'+mine.color+'">'+esc(mine.tag)+'</span>'+
+    '<div style="flex:1"><b>'+esc(mine.name)+'</b><div class="hint">'+mine.members.length+' members · you\'re in'+(mine.owner===u.id?' · OWNER':'')+'</div></div>'+
+    '<button class="btn sm line" onclick="leaveClan()">Leave</button></div>':
+    '<div class="launchnote">You\'re not repping a clan yet. Join one or start your own crew.</div>')+
+  '<div class="shead"><h2>All clans</h2><button class="btn sm ghost" onclick="clanModal()">+ Start clan</button></div>'+
+  S.clans.map(c=>{const owner=S.users[c.owner]||{nick:'?'};const inIt=c.members.includes(u.id);
+    return '<div class="card clanrow"><span class="clantag" style="background:'+c.color+'">'+esc(c.tag)+'</span>'+
+    '<div style="flex:1;min-width:0"><b>'+esc(c.name)+'</b><div class="hint">'+c.members.length+' members · led by '+esc(owner.nick)+'</div>'+
+    '<p style="font-size:12.5px;color:#9AA1AC;margin-top:3px">'+esc(c.about||'')+'</p></div>'+
+    (inIt?'<span class="badge v">✓ IN</span>':'<button class="btn sm amber" onclick="joinClan(\''+c.id+'\')">Join</button>')+'</div>';
+  }).join('');
+}
+function clanModal(){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Start a clan</h2>'+
+  '<div class="row2" style="margin-top:10px"><div class="field"><label>Tag (2-5)</label><input id="ctag" maxlength="5" placeholder="RDLN"></div>'+
+  '<div class="field"><label>Color</label><input id="ccol" type="color" value="#E8362D" style="height:46px;padding:4px"></div></div>'+
+  '<div class="field"><label>Clan name</label><input id="cname" placeholder="Redline Society"></div>'+
+  '<div class="field"><label>About</label><input id="cabout" placeholder="What your crew is about"></div>'+
+  '<button class="btn amber" onclick="createClan()">Create &amp; join</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function createClan(){
+  const tag=$('#ctag').value.trim().toUpperCase(),name=$('#cname').value.trim();
+  if(!tag||!name)return toast('Tag and name required.');
+  const id='c'+Date.now();
+  S.clans.unshift({id,tag,name,owner:S.me,color:$('#ccol').value,members:[S.me],about:$('#cabout').value.trim()});
+  S.users[S.me].clan=id;save();document.querySelector('.overlay').remove();render();toast('Clan founded. ['+tag+'] rides.');
+}
+function joinClan(id){const u=S.users[S.me];
+  if(u.clan){const old=S.clans.find(c=>c.id===u.clan);if(old)old.members=old.members.filter(m=>m!==u.id);}
+  const c=S.clans.find(c=>c.id===id);if(!c.members.includes(u.id))c.members.push(u.id);u.clan=id;save();render();toast('Repping ['+c.tag+'] now.');}
+function leaveClan(){const u=S.users[S.me];const c=S.clans.find(c=>c.id===u.clan);
+  if(c)c.members=c.members.filter(m=>m!==u.id);u.clan=null;save();render();toast('Left the clan.');}
+
+/* ---- live map ---- */
+function pMap(){
+  const u=S.users[S.me];
+  setTimeout(drawMap,20);
+  const visible=Object.values(S.users).filter(x=>x.loc&&x.loc.visible);
+  const pins=visible.map(x=>{const me=x.id===u.id;
+    return '<div class="pin '+(me?'me':'')+'" style="left:'+x.loc.x+'%;top:'+x.loc.y+'%" onclick="'+(me?'':'joinPin(\''+x.id+'\')')+'">'+
+    '<div class="bub">'+(me?'⦿ ':'')+esc(x.nick)+' <span style="color:var(--amber)">'+(x.master?'★':'L'+lvlOf(x.xp).l)+'</span></div><div class="stem"></div></div>';
+  }).join('');
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Live meet map</h1>'+
+  '<p class="hint" style="margin-bottom:10px">Members who are visible show up here. Spot the scene, roll to a meet.</p>'+
+  '<div class="mapwrap"><canvas id="mapcv"></canvas>'+pins+'</div>'+
+  '<div class="mapctl"><div><b style="font-size:14px">Show me on the map</b><div class="hint">'+(u.loc.visible?'You\'re visible as '+esc(u.nick)+' · '+esc(u.loc.area):'You\'re hidden')+'</div></div>'+
+  '<button class="toggle '+(u.loc.visible?'on':'')+'" onclick="toggleVisible()" aria-label="visibility"><i></i></button></div>'+
+  '<div class="warn" style="margin-top:12px"><b>Real talk on the map:</b> a live map of real people by name is powerful but heavy. It only becomes real with the phase-2 backend + Google Maps key — and if it\'s ever used to coordinate illegal street racing or dodge police, the app (and this location history) turns into evidence that works <b>against</b> members. Built for meets, track days and finding the crew — keep it to sanctioned spots.</div>';
+}
+function drawMap(){
+  const cv=$('#mapcv');if(!cv)return;const w=cv.width=cv.clientWidth*2,h=cv.height=cv.clientHeight*2,x=cv.getContext('2d');
+  x.fillStyle='#0a0f14';x.fillRect(0,0,w,h);
+  x.strokeStyle='rgba(120,140,170,.10)';x.lineWidth=2;
+  for(let i=0;i<14;i++){x.beginPath();x.moveTo(i*w/14,0);x.lineTo(i*w/14,h);x.stroke();
+    x.beginPath();x.moveTo(0,i*h/14);x.lineTo(w,i*h/14);x.stroke();}
+  // a few "main roads"
+  x.strokeStyle='rgba(242,179,61,.22)';x.lineWidth=8;
+  [[0.1,0.8,0.9,0.2],[0.15,0.15,0.7,0.95],[0.05,0.5,0.95,0.55]].forEach(([x1,y1,x2,y2])=>{
+    x.beginPath();x.moveTo(x1*w,y1*h);x.lineTo(x2*w,y2*h);x.stroke();});
+  x.strokeStyle='rgba(232,54,45,.35)';x.lineWidth=3;
+  x.beginPath();x.arc(w*0.6,h*0.3,10,0,7);x.stroke();
+}
+function toggleVisible(){const u=S.users[S.me];u.loc.visible=!u.loc.visible;
+  if(u.loc.visible&&(u.loc.area==='—'||!u.loc.area))u.loc.area='Your spot';save();render();
+  toast(u.loc.visible?'You\'re on the map now. 📍':'You went dark.');}
+function joinPin(uid){const x=S.users[uid];toast('Rolling toward '+x.nick+'\'s 20 — '+(x.loc.area||'meet')+' 🏁');}
+
+/* ---- admin (Master only) ---- */
+function pAdmin(){
+  const me=S.users[S.me];
+  if(!me.master)return '<div class="empty">Master access only.</div>';
+  const q=S.queue;
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Master control</h1>'+
+  '<p class="hint" style="margin-bottom:12px">Level anyone up or down, hand out prestige, and verify proof. Your word is final.</p>'+
+  '<div class="shead"><h2><s>Review queue</s></h2><span class="badge f">'+q.length+'</span></div>'+
+  (q.length?q.map(item=>{const u=S.users[item.user]||{nick:'?'};
+    const label=item.type==='race'?('Race win claim'):('Mission: '+(MISSIONS.find(m=>m.id===item.mid)||{t:item.mid}).t);
+    return '<div class="card queueitem"><b>'+esc(u.nick)+'</b> <span class="hint">· '+label+'</span>'+
+    (item.videoUrl?'<div class="hint" style="margin-top:4px;word-break:break-all">🎥 '+esc(item.videoUrl)+'</div>':'')+
+    (item.note?'<div class="hint">"'+esc(item.note)+'"</div>':'')+
+    '<div class="qbtns"><button class="btn sm amber" onclick="adminApprove(\''+item.id+'\',true)">Approve</button>'+
+    '<button class="btn sm line" onclick="adminApprove(\''+item.id+'\',false)">Deny</button></div></div>';
+  }).join(''):'<div class="card empty">Queue clear. Nothing to review.</div>')+
+  '<div class="shead"><h2>Members</h2></div>'+
+  Object.values(S.users).map(u=>{const {l}=u.master?{l:MAXLVL}:lvlOf(u.xp||0);
+    return '<div class="card arow"><div class="ava" style="width:38px;height:38px;font-size:14px;flex:0 0 38px">'+esc(u.nick[0])+'</div>'+
+    '<div style="flex:1;min-width:0"><b>'+esc(u.nick)+'</b> '+(u.master?'<span class="badge masterbadge">M</span>':'')+
+    '<div class="hint mono">'+esc(u.profileNo)+' · '+(u.master?'MASTER':'P'+u.prestige+' L'+l+' · '+(u.xp||0)+'xp')+'</div></div>'+
+    (u.master?'':'<div class="abtns"><button class="abtn dn" onclick="adminLevel(\''+u.id+'\',-1)">−</button>'+
+      '<button class="abtn up" onclick="adminLevel(\''+u.id+'\',1)">+</button>'+
+      '<button class="abtn pp" onclick="adminPrestige(\''+u.id+'\')">P+</button>'+
+      '<button class="abtn pp" onclick="adminMaster(\''+u.id+'\')" style="color:#FFD34D">★</button></div>')+'</div>';
+  }).join('')+
+  '<div class="shead"><h2>Club password</h2></div>'+
+  '<div class="card" style="padding:14px"><p class="hint" style="margin-bottom:8px">Members need this to enter the paddock. Current: <b class="mono">'+esc(S.clubPass)+'</b></p>'+
+  '<div style="display:flex;gap:8px"><input id="newpass" placeholder="New club password"><button class="btn sm amber" onclick="setPass()">Set</button></div></div>';
+}
+function adminLevel(uid,dir){const u=S.users[uid];const cur=lvlOf(u.xp||0).l;
+  const target=Math.min(MAXLVL,Math.max(1,cur+dir));
+  let x=0;for(let i=1;i<target;i++)x+=need(i);u.xp=x;
+  save();render();toast(u.nick+' → level '+target);}
+function adminPrestige(uid){const u=S.users[uid];if((u.prestige||0)>=10){return adminMaster(uid);}u.prestige=(u.prestige||0)+1;u.xp=0;save();render();toast(u.nick+' → Prestige '+u.prestige);}
+function adminMaster(uid){const u=S.users[uid];u.master=!u.master;save();render();toast(u.nick+(u.master?' is now MASTER 👑':' master removed'));}
+function setPass(){const p=$('#newpass').value.trim();if(p.length<3)return toast('Too short.');S.clubPass=p;save();render();toast('Club password updated.');}
+function adminApprove(qid,ok){
+  const item=S.queue.find(q=>q.id===qid);if(!item)return;const u=S.users[item.user];
+  if(ok){
+    if(item.type==='proof'){const m=MISSIONS.find(x=>x.id===item.mid);if(m){u.completed[item.mid]=1;u.xp=(u.xp||0)+m.xp;}}
+    if(item.type==='race'){const before=u.races.wins;u.races.wins+=item.claim||1;
+      RACE_MILES.forEach(([n,nm,xp])=>{if(before<n&&u.races.wins>=n)u.xp=(u.xp||0)+xp;});}
+  }
+  if(item.mid)u.pending=(u.pending||[]).filter(x=>x!==item.mid);
+  S.queue=S.queue.filter(q=>q.id!==qid);save();render();toast(ok?'Approved — XP granted to '+u.nick:'Denied.');
+}
+function pQR(){
+  const u=S.users[S.me];
+  return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 6px">Your invite QR</h1>'+
+  '<p class="hint" style="margin-bottom:16px">Show this at meets. People scan it, the app opens, and they build their profile.</p>'+
+  '<div class="card" style="padding:22px;text-align:center">'+
+  '<img src="'+QR_URI+'" alt="PitLane QR" style="width:200px;max-width:70%;border-radius:14px;background:#F4F6FA;padding:10px">'+
+  '<div class="disp" style="font-size:20px;margin-top:14px">PITLANE</div>'+
+  '<div class="mono" style="color:var(--amber);font-weight:700;margin-top:4px">'+esc(u.profileNo)+'</div>'+
+  '<p class="hint" style="margin-top:8px">robert30z.github.io/PitLane</p></div>'+
+  '<p class="hint" style="margin-top:12px">This QR points to your planned public link. Once we deploy to GitHub and lock the final URL, I\'ll regenerate it so every scan lands on the live app.</p>';
+}
+
+/* add build mission to catalog */
+MISSIONS.push({id:'first_build',t:'Spec\'d Out',d:'Save your first car build in the garage',xp:250,once:1});
+
+/* =================== BOOT =================== */
+let world='market',ptab='home',unlocked=false;
+load();
+if(S.me){tab='market';view={name:'tab'}}
+render();
+</script>
