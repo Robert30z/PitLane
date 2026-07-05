@@ -184,6 +184,7 @@ nav .sellbtn svg{width:26px;height:26px;stroke:#fff;stroke-width:2.4}
 .sheet{width:100%;max-width:500px;background:var(--panel);border:1px solid var(--line);
   border-radius:20px 20px 0 0;padding:20px 18px 26px;animation:up .22s ease}
 @keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 #toast{position:fixed;bottom:104px;left:50%;transform:translateX(-50%);z-index:80;
   background:#1E232C;border:1px solid var(--line);color:var(--text);padding:11px 18px;
   border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.5);
@@ -400,12 +401,9 @@ const MISSIONS=[
   {id:'host',t:'Host With The Most',d:'Host an event at a sanctioned venue',xp:250,auto:1},
   {id:'first_msg',t:'On The Radio',d:'Send your first message to a seller',xp:50,auto:1,once:1},
   {id:'boost',t:'Pole Sitter',d:'Boost one of your listings',xp:100,auto:1,once:1},
-  {id:'hp500',t:'500 HP Club',d:'Dyno sheet showing 500+ whp — crew verified',xp:500,once:1},
-  {id:'fullbuild',t:'Fully Built',d:'Engine, suspension, brakes and aero all done — crew verified',xp:750,once:1},
-  {id:'circuit',t:'Circuit Racer',d:'Run a full track day — crew verified',xp:400,once:1},
-  {id:'strip',t:'Strip Veteran',d:'Legal timeslip under 13s — crew verified',xp:500,once:1},
-  {id:'show',t:'Show Winner',d:'Take a trophy at any car show — crew verified',xp:400,once:1},
-  {id:'helper',t:'Wrench Angel',d:'Help a member with their build — they vouch for you',xp:300,once:1}
+  {id:'checkin',t:'On The Grid',d:'Check in at a sanctioned event',xp:150,auto:1},
+  {id:'racewin',t:'Took The W',d:'Win a host-confirmed race at an event',xp:400,auto:1},
+  {id:'racerun',t:'Lined Up',d:'Run any host-confirmed race (win or lose)',xp:120,auto:1}
 ];
 function award(mid){
   const u=S.users[S.me],m=MISSIONS.find(x=>x.id===mid);
@@ -439,15 +437,15 @@ function seed(){return{
     trippzy:{id:'trippzy',first:'Roberto',last:'M.',nick:'Trippzy',email:'rjohn7148@gmail.com',
       verified:true,founder:true,rating:5,sales:0,joined:'2026-07',master:true,prestige:10,xp:99999,completed:{},pending:[]},
     marv:{id:'marv',first:'Marcus',last:'Reyes',nick:'BoostedMarv',email:'m@x.com',verified:true,rating:4.8,sales:14,joined:'2026-06',prestige:1,xp:4200,completed:{},pending:[],
-      races:{wins:23},bio:'Single turbo everything. If it don\'t boost it don\'t move.',clan:'c1',
+      races:{wins:23,losses:5},trophies:['Test & Tune Night — Winner'],bio:'Single turbo everything. If it don\'t boost it don\'t move.',clan:'c1',
       carBuild:{id:'v0',disc:'Drift',brand:'Mazda',model:'RX-7 FD',year:'1993',paint:'#EDEFF2',rim:'Volk TE37',rimC:'#B08D57',stance:'Slammed',drive:'RWD',hp:'505',mods:'BorgWarner S366\nHaltech Elite 1500\nFortune Auto 500 coilovers'},
       loc:{x:62,y:28,visible:true,area:'North lot'}},
     lena:{id:'lena',first:'Lena',last:'Ortiz',nick:'ClutchQueen',email:'l@x.com',verified:true,rating:4.9,sales:22,joined:'2026-06',prestige:2,xp:7600,completed:{},pending:[],
-      races:{wins:41},bio:'Six-speed swaps and clean tunes.',clan:'c1',
+      races:{wins:41,losses:9},trophies:['Chuckwalla Track Day — Fast Time'],bio:'Six-speed swaps and clean tunes.',clan:'c1',
       carBuild:{id:'v0',disc:'Time Attack',brand:'Toyota',model:'Supra',year:'1998',paint:'#111418',rim:'Work Meister S1',rimC:'#D4AF37',stance:'Lowered',drive:'RWD',hp:'720',mods:'Rebuilt 2JZ\nPrecision 6870\nGetrag 6-speed'},
       loc:{x:40,y:55,visible:true,area:'Industrial row'}},
     dan:{id:'dan',first:'Danny',last:'Fuentes',nick:'TwoStrokeDan',email:'d@x.com',verified:false,rating:4.2,sales:3,joined:'2026-07',prestige:0,xp:900,completed:{},pending:[],
-      races:{wins:6},bio:'Bikes and quads. Two strokes forever.',clan:null,
+      races:{wins:6,losses:7},trophies:[],bio:'Bikes and quads. Two strokes forever.',clan:null,
       carBuild:{id:'v0',disc:'Circuit',brand:'Honda Moto',model:'CBR600RR',year:'2006',paint:'#E8362D',rim:'',rimC:'#1A1C20',stance:'Stock',drive:'RWD',hp:'105',mods:'Yoshimura full exhaust\nQ5 tires'},
       loc:{x:78,y:70,visible:true,area:'East side'}}
   },
@@ -483,15 +481,24 @@ function seed(){return{
   events:[
     E('e1','trippzy','meet','PitLane Launch Meet','Sat Jul 18','JUL','18','Grand Prix Plaza lot (sanctioned)','Kick-off meet for the PitLane community. All builds welcome — cars, bikes, quads. Vendor row + photo wall.',['marv','lena','dan']),
     E('e2','lena','track','Open Track Day — Chuckwalla','Sun Jul 26','JUL','26','Chuckwalla Valley Raceway','Full day, open passing with point-by. Helmets required, tech inspection at gate 7am.',['marv']),
-    E('e3','marv','drag','Test & Tune Night','Fri Aug 1','AUG','1','Pacific Raceways — 1/4 mile','Legal runs, real timeslips. $30 tech card at the gate. Prove it on the strip.',['dan','lena']),
-    E('e4','dan','dyno','Dyno Day + BBQ','Sat Aug 9','AUG','9','Mesa Performance Works','$60 for 3 pulls with printout. Highest HP-per-dollar build takes a trophy.',[])
+    E('e3','trippzy','drag','Test & Tune Bracket Night','Fri Aug 1','AUG','1','Pacific Raceways — 1/4 mile','Host-run bracket night. Every car passes PitLane inspection at the gate, then we bracket race. Winner takes the trophy + purse.',['dan','lena','marv'],{fee:10,raceFee:50,purse:400,trophy:'Bracket Night Champion'}),
+    E('e4','trippzy','dyno','Dyno Day + BBQ','Sat Aug 9','AUG','9','Mesa Performance Works','$60 for 3 pulls with printout. Highest HP-per-dollar build takes a trophy.',[],{fee:10,trophy:'Dyno King'})
   ],
   clans:[
     {id:'c1',tag:'RDLN',name:'Redline Society',owner:'marv',color:'#E8362D',members:['marv','lena'],about:'No lift, no chill. Turbo builds and clean passes only.'},
     {id:'c2',tag:'APEX',name:'Apex Hunters',owner:'lena',color:'#2C6FB5',members:['lena'],about:'Track day crew — canyons and circuits.'}
   ],
-  queue:[
-    {id:'q1',type:'race',user:'dan',videoUrl:'https://youtu.be/demo-run',note:'Won a roll race vs a Mustang GT, timeslip in the clip',claim:1}
+  queue:[],
+  challenges:[
+    {id:'ch1',from:'dan',to:'trippzy',venue:'Test & Tune Bracket Night (Aug 1)',status:'pending',t:'Yesterday'}
+  ],
+  announcements:[
+    {id:'an1',from:'trippzy',title:'Bracket Night is ON — Aug 1',when:'Fri Aug 1, gates 6pm',place:'Pacific Raceways 1/4 mile',trophy:'Bracket Night Champion',purse:400,xp:400,text:'Inspection at the gate, no exceptions. Winner takes the trophy, the purse, and 400 XP. Sign up in Races.',t:'2d ago'}
+  ],
+  paddockChat:[
+    {from:'lena',text:'Who\'s pulling up to bracket night? 👀',t:'1:12 PM'},
+    {from:'marv',text:'Me. RX-7 just passed tech last week.',t:'1:20 PM'},
+    {from:'dan',text:'Challenged Trippzy already lol',t:'1:44 PM'}
   ],
   clubPass:'redline',pno:5,
   threads:[
@@ -506,14 +513,18 @@ function L(id,seller,cat,title,model,price,loc,miles,title_st,vin,mods,desc,boos
   return{id,seller,cat,title,model,price,loc,miles,titleStatus:title_st,vin,mods,desc,
     boosted:!!boost,hue:h1+Math.floor(Math.random()*(h2-h1)),photos:null,posted:'Jul 2026'};
 }
-function E(id,host,type,title,when,mo,day,venue,desc,going){return{id,host,type,title,when,mo,day,venue,desc,going}}
+function E(id,host,type,title,when,mo,day,venue,desc,going,extra){return Object.assign({id,host,type,title,when,mo,day,venue,desc,going,fee:0,raceFee:0,purse:0,trophy:'',checkin:[],racers:[],results:[],inspections:{}},extra||{})}
 
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch(e){} if(!S)S=seed();
   S.clans=S.clans||[];S.queue=S.queue||[];S.clubPass=S.clubPass||CLUB_DEFAULT;S.pno=S.pno||1;
+  S.challenges=S.challenges||[];S.paddockChat=S.paddockChat||[];S.announcements=S.announcements||[];
+  S.events.forEach(ev=>{ev.fee=ev.fee||0;ev.raceFee=ev.raceFee||0;ev.purse=ev.purse||0;ev.trophy=ev.trophy||'';
+    ev.checkin=ev.checkin||[];ev.racers=ev.racers||[];ev.results=ev.results||[];ev.inspections=ev.inspections||{};});
   Object.keys(S.users).forEach(k=>{const u=S.users[k];
     u.xp=u.xp||0;u.prestige=u.prestige||0;u.completed=u.completed||{};u.pending=u.pending||[];
-    u.races=u.races||{wins:0};u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
+    u.races=u.races||{wins:0};u.races.losses=u.races.losses||0;u.attended=u.attended||[];u.trophies=u.trophies||[];
+    u.carPhotos=u.carPhotos||[];u.unlockedTitles=u.unlockedTitles||[];
     u.unlockedEmblems=u.unlockedEmblems||[];u.clan=u.clan||null;u.bio=u.bio||'';
     u.eqCard=u.eqCard||null;u.eqName=u.eqName||null;
     if(!u.garage)u.garage=u.carBuild?[Object.assign({id:'v0',disc:'Street Build'},u.carBuild)]:[];
@@ -633,10 +644,10 @@ function verify(){
   const id='u'+Date.now();
   S.users[id]={id,first:pend.first,last:pend.last,nick:pend.nick,email:pend.email,
     verified:true,rating:0,sales:0,joined:'2026-07',xp:0,prestige:0,completed:{},pending:[]};
-  S.me=id;save();pend=null;tab='market';view={name:'tab'};render();
+  S.me=id;save();pend=null;tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();
   toast('Verified. Welcome to the grid, '+S.users[id].nick+' 🏁');
 }
-function demoLogin(){S.me='trippzy';save();tab='market';view={name:'tab'};render();
+function demoLogin(){S.me='trippzy';save();tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();
   toast('Signed in as Trippzy — Founder');}
 
 /* =================== MARKET =================== */
@@ -851,7 +862,13 @@ function vEventNew(){
   '<div class="field"><label for="e_day">Day</label><input id="e_day" placeholder="16" maxlength="2" inputmode="numeric"></div></div>'+
   '<div class="field"><label for="e_venue">Venue</label><input id="e_venue" placeholder="Track / strip / lot name"></div>'+
   '<div class="field"><label for="e_desc">Details</label><textarea id="e_desc" rows="3" placeholder="Time, rules, cost at the gate…"></textarea></div>'+
-  '<label class="rules"><input type="checkbox" id="e_legal"><span>This event is at a <b>sanctioned venue</b> with permission — a track, strip, or private property. PitLane does not host or promote illegal street activity.</span></label>'+
+  '<div class="shead"><h2>Money &amp; prizes</h2><span class="badge founder">FREE @ LAUNCH</span></div>'+
+  '<div class="row2"><div class="field"><label for="e_fee">Entry fee ($)</label><input id="e_fee" inputmode="numeric" placeholder="10"></div>'+
+  '<div class="field"><label for="e_racefee">Race reg ($)</label><input id="e_racefee" inputmode="numeric" placeholder="50"></div></div>'+
+  '<div class="row2"><div class="field"><label for="e_purse">Winner purse ($)</label><input id="e_purse" inputmode="numeric" placeholder="400"></div>'+
+  '<div class="field"><label for="e_trophy">Trophy name</label><input id="e_trophy" placeholder="Bracket Champion"></div></div>'+
+  '<p class="hint">Fees are display-only during launch. When we turn on real payments (phase 2), you keep an organizer cut and the purse pays the winner — set up the legal way.</p>'+
+  '<label class="rules"><input type="checkbox" id="e_legal"><span>This event is at a <b>sanctioned venue</b> with permission — a track, strip, or private property. Every race runs through inspection. PitLane does not host or promote illegal street activity.</span></label>'+
   '<button class="btn" onclick="newEvent()">Post event</button>';
 }
 function newEvent(){
@@ -859,8 +876,8 @@ function newEvent(){
         day=$('#e_day').value.trim(),ven=$('#e_venue').value.trim();
   if(!t||!mo||!day||!ven)return toast('Name, date, and venue are all required.');
   if(!$('#e_legal').checked)return toast('Confirm the venue is sanctioned first.');
-  S.events.unshift({id:'e'+Date.now(),host:S.me,type:$('#e_type').value,title:t,
-    when:mo+' '+day,mo,day,venue:ven,desc:$('#e_desc').value.trim(),going:[S.me]});
+  S.events.unshift(E('e'+Date.now(),S.me,$('#e_type').value,t,mo+' '+day,mo,day,ven,$('#e_desc').value.trim(),[S.me],
+    {fee:+($('#e_fee').value||0),raceFee:+($('#e_racefee').value||0),purse:+($('#e_purse').value||0),trophy:$('#e_trophy').value.trim()}));
   save();award('host');setTab('events');toast('Event posted. Spread the word 📣');
 }
 
@@ -929,16 +946,12 @@ function rankCard(u,self){
 function missionsHTML(u){
   return '<div class="shead"><h2><s>Missions</s> — Earn your stripes</h2></div>'+
   MISSIONS.map(m=>{
-    const done=m.once&&u.completed[m.id],pend=(u.pending||[]).includes(m.id),count=u.completed[m.id]||0;
-    let right;
-    if(done&&!m.auto||done&&m.once)right='<span class="badge v">✓ DONE</span>';
-    else if(pend)right='<span class="badge f">UNDER REVIEW</span>';
-    else if(m.auto)right='<span class="hint">auto'+(count&&!m.once?' ×'+count:'')+'</span>';
-    else right='<button class="btn sm ghost" onclick="submitProof(\''+m.id+'\')">Submit proof</button>';
-    return '<div class="card mission'+(done?' done':pend?' pend':'')+'"><div class="mi"><b>'+m.t+'</b><p>'+m.d+'</p></div>'+
+    const done=m.once&&u.completed[m.id],count=u.completed[m.id]||0;
+    const right=done?'<span class="badge v">✓ DONE</span>':'<span class="hint">auto'+(count&&!m.once?' ×'+count:'')+'</span>';
+    return '<div class="card mission'+(done?' done':'')+'"><div class="mi"><b>'+m.t+'</b><p>'+m.d+'</p></div>'+
     '<span class="xp">+'+m.xp+' XP</span>'+right+'</div>';
   }).join('')+
-  '<p class="hint" style="margin:4px 0 8px">Auto missions pay out the moment you do the thing. Proof missions get reviewed by the PitLane crew before the XP lands.</p>';
+  '<p class="hint" style="margin:4px 0 8px">Every mission pays out automatically the moment you do it. Race XP comes only from host-confirmed races at events — no fake claims.</p>';
 }
 function vUser(uid,self){
   const u=S.users[uid];if(!u)return '<div class="empty">User not found.</div>';
@@ -954,13 +967,15 @@ function vUser(uid,self){
   (u.verified?'<span class="badge v">✓ EMAIL VERIFIED</span>':'<span class="badge cat">UNVERIFIED</span>')+
   '</div></div></div>'+
   rankCard(u,self)+
+  '<button class="btn ghost" style="margin-top:12px" onclick="shareProfile(\''+uid+'\')">🔗 Share this profile</button>'+
   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0">'+
-  '<div class="stat"><b>'+garage.length+'</b><span>listings</span></div>'+
-  '<div class="stat"><b>'+u.sales+'</b><span>sales</span></div>'+
-  '<div class="stat"><b class="stars" style="font-size:15px">'+(u.rating?stars(u.rating):'—')+'</b><span>rating</span></div></div>'+
+  '<div class="stat"><b style="color:var(--green)">'+wl(u).w+'</b><span>wins</span></div>'+
+  '<div class="stat"><b style="color:var(--red-hot)">'+wl(u).l+'</b><span>losses</span></div>'+
+  '<div class="stat"><b>'+((u.trophies||[]).length)+'</b><span>trophies</span></div></div>'+
+  ((u.garage&&u.garage[0])?'<div class="shead"><h2>Main build</h2></div>'+buildCard(u.garage[0]):'')+
   (self&&u.founder?'<div class="launchnote"><b>Founder account.</b> You run PitLane. Boosts, featured slots and verified tiers are all FREE during launch season — flip on pricing when the grid fills up.</div>':'')+
   (self?missionsHTML(u):'')+
-  '<div class="shead"><h2>'+(self?'My garage':'Their garage')+'</h2></div>'+
+  '<div class="shead"><h2>'+(self?'Their listings':'Their listings').replace('Their',self?'My':'Their')+'</h2></div>'+
   (garage.length?'<div class="grid">'+garage.map(cardHTML).join('')+'</div>'
     :'<div class="empty">Empty garage — nothing listed yet.</div>')+
   (self?'<button class="btn ghost" style="margin-top:18px" onclick="startWizard()">+ List something</button>'+
@@ -1041,12 +1056,12 @@ function vGate(){
 /* ---- prestige shell / nav ---- */
 function setPTab(t){ptab=t;view={name:'prestige'};render();window.scrollTo(0,0)}
 function prestigeShell(){
-  const map={home:pHome,ranks:pRanks,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR};
+  const map={home:pHome,ranks:pRanks,chat:pChat,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR};
   const inner=(map[ptab]||pHome)();
   const top='<header class="p-top"><div class="plogo">PIT<em>LANE</em> · <span style="color:var(--amber)">PADDOCK</span></div>'+
     '<div style="flex:1"></div><button class="lockbtn" onclick="exitPrestige()">&#8592; MARKET</button></header>';
   const me=S.users[S.me];
-  const items=[['home','Garage','profile'],['ranks','Ranks','events'],['MAP','',''],['clans','Clans','chat'],[me.master?'admin':'map',me.master?'Admin':'Map',me.master?'profile':'market']];
+  const items=[['home','Garage','profile'],['ranks','Races','events'],['MAP','',''],['chat','Chat','chat'],[me.master?'admin':'clans',me.master?'Admin':'Clans','market']];
   const nav='<nav class="pnav">'+items.map(([k,lab,ic])=>{
     if(k==='MAP')return '<button class="sellbtn" onclick="setPTab(\'map\')" aria-label="Live map">'+mapIcon()+'</button>';
     return '<button class="'+(ptab===k?'on':'')+'" onclick="setPTab(\''+k+'\')">'+icon(ic)+lab+'</button>';
@@ -1099,6 +1114,42 @@ function unlockedColors(u){const l=NAMECOLORS.filter(c=>u.master||c[0]<=(u.prest
 function nameColor(u){if(u.master)return GOLD;const un=unlockedColors(u).map(c=>c[1]);if(u.eqName&&un.includes(u.eqName))return u.eqName;return un[un.length-1]||'#EEF1F6';}
 function nn(u){const c=nameColor(u),g=c===GOLD;return '<span style="color:'+c+(g?';text-shadow:0 0 9px rgba(255,211,77,.5);font-weight:800':'')+'">'+esc(u.nick)+'</span>';}
 function equipName(c){S.users[S.me].eqName=c;save();render();toast('Name color set.')}
+
+/* ---- shareable profiles (unique URL + IG story card) ---- */
+const SITE='https://robert30z.github.io/PitLane/';
+function shareURL(u){return SITE+'?u='+encodeURIComponent(u.profileNo)}
+function shareProfile(uid){
+  const u=S.users[uid],url=shareURL(u);
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Share '+nn(u)+'</h2>'+
+  '<p class="hint" style="margin:8px 0 12px">Your unique PitLane link. Drop it in your IG bio or story so people find your garage and rank.</p>'+
+  '<div class="field"><input id="shurl" value="'+esc(url)+'" readonly onclick="this.select()"></div>'+
+  '<button class="btn amber" onclick="copyShare(\''+esc(url).replace(/'/g,"\\'")+'\')">Copy link</button>'+
+  '<button class="btn ghost" style="margin-top:8px" onclick="shareCard(\''+uid+'\')">📸 Save IG story card</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Close</button></div>';
+  document.body.appendChild(ov);
+}
+function copyShare(url){try{navigator.clipboard.writeText(url)}catch(e){}toast('Link copied — paste it anywhere 📋')}
+function shareCard(uid){
+  const u=S.users[uid],c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,1080,1350);g.addColorStop(0,'#161a21');g.addColorStop(1,'#05070a');x.fillStyle=g;x.fillRect(0,0,1080,1350);
+  x.fillStyle=nameColor(u);x.fillRect(0,0,1080,16);
+  x.font='italic 800 62px "Segoe UI",sans-serif';x.fillStyle='#EEF1F6';x.fillText('PIT',80,160);
+  x.fillStyle='#E8362D';x.fillText('LANE',80+x.measureText('PIT').width,160);
+  x.textBaseline='alphabetic';
+  x.fillStyle=nameColor(u);x.font='italic 800 118px "Segoe UI",sans-serif';x.fillText(u.nick.toUpperCase().slice(0,12),80,430);
+  x.fillStyle='#8B94A6';x.font='600 38px "Segoe UI",sans-serif';
+  x.fillText((u.master?'MASTER PRESTIGE':'PRESTIGE '+u.prestige+' · LEVEL '+lvlOf(u.xp).l)+'  ·  '+u.profileNo,80,500);
+  const b=u.garage&&u.garage[0];
+  if(b){x.fillStyle='#C6CDD9';x.font='700 54px "Segoe UI",sans-serif';x.fillText((b.year+' '+b.brand+' '+b.model).slice(0,24),80,690);
+    x.fillStyle='#8B94A6';x.font='500 40px "Segoe UI",sans-serif';x.fillText((b.hp||'—')+' hp · '+(b.disc||''),80,752);}
+  const r=wl(u);x.font='800 92px "Segoe UI",sans-serif';
+  x.fillStyle='#3DD68C';x.fillText(r.w+'W',80,1010);x.fillStyle='#FF5A4E';x.fillText(r.l+'L',340,1010);
+  x.fillStyle='#F2B33D';x.fillText((u.trophies||[]).length+' 🏆',600,1010);
+  x.fillStyle='#8B94A6';x.font='500 36px "Segoe UI",sans-serif';x.fillText('robert30z.github.io/PitLane',80,1290);
+  try{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='pitlane-'+u.nick+'.png';a.click();
+    toast('Story card saved — post it to IG 📸');}catch(e){toast('Could not save card here.')}
+}
 function emblemArt(name,color,size){
   const OV={CROWN:'♛',ROOKIE:'RKY',TUNED:'TUN'};
   const s=size||38,short=OV[name]||(name.length>4?name.replace(/[^A-Z0-9]/gi,'').slice(0,4):name);
@@ -1136,9 +1187,15 @@ function pHome(){
   '<div class="launchnote">Every vehicle you add earns <b>+'+XP_PER_VEHICLE+' XP</b>. Stack the whole collection.</div>'+
   (u.carPhotos&&u.carPhotos.length?'<div class="shead"><h2>Real shots</h2></div><div class="gallery">'+
     u.carPhotos.map(p=>'<img src="'+p+'" alt="my car">').join('')+'</div>':'')+
+  '<div class="shead"><h2>Trophy case</h2><span class="badge f">'+wl(u).w+'W · '+wl(u).l+'L</span></div>'+
+  ((u.trophies&&u.trophies.length)?u.trophies.map(t=>'<div class="card" style="padding:11px 13px;margin-bottom:8px">🏆 <b>'+esc(t)+'</b></div>').join('')
+    :'<div class="card empty" style="padding:26px">No trophies yet.<br>Win a host-confirmed race at an event.</div>')+
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">'+
   '<button class="btn ghost" onclick="setPTab(\'edit\')">Edit profile</button>'+
-  '<button class="btn ghost" onclick="setPTab(\'qr\')">My QR code</button></div>'+
+  '<button class="btn ghost" onclick="setPTab(\'clans\')">Clans</button>'+
+  '<button class="btn ghost" onclick="setPTab(\'qr\')">My QR code</button>'+
+  '<button class="btn ghost" onclick="setPTab(\'ranks\')">Races</button></div>'+
+  '<button class="btn ghost" style="margin-top:10px" onclick="shareProfile(\''+S.me+'\')">🔗 Share my profile (IG link + card)</button>'+
   (u.master?'<button class="btn amber" style="margin-top:10px" onclick="setPTab(\'admin\')">👑 Master control panel</button>':'')+
   '<button class="btn line" style="margin-top:10px" onclick="exitPrestige()">Back to marketplace</button>';
 }
@@ -1283,40 +1340,152 @@ function rmPhoto(i){const u=S.users[S.me];u.carPhotos.splice(i,1);save();render(
 function saveEdit(){S.users[S.me].bio=$('#pbio').value;save();setPTab('home');toast('Profile saved.')}
 
 /* ---- ranks + races ---- */
+function wl(u){const w=u.races.wins||0,l=u.races.losses||0,t=w+l;return{w,l,t,pct:t?Math.round(w/t*100):0}}
 function pRanks(){
-  const u=S.users[S.me];
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Rank &amp; grind</h1>'+
+  const u=S.users[S.me],r=wl(u),mine=S.me;
+  const myChallenges=S.challenges.filter(c=>c.from===mine||c.to===mine);
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Rank &amp; races</h1>'+
   rankCard(u,true)+
-  '<div class="shead"><h2><s>Races</s> — Prove it</h2><span class="badge f">'+u.races.wins+' WINS</span></div>'+
-  '<div class="card" style="padding:14px"><p style="font-size:13.5px;color:#C6CDD9;margin-bottom:10px">Log a win with a video and the crew verifies it. Wins climb the race ladder and drop serious XP.</p>'+
-  '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'+
-  RACE_MILES.map(([n,nm,xp])=>'<div class="stat" style="'+(u.races.wins>=n?'border-color:rgba(61,214,140,.5)':'')+'"><b style="font-size:16px'+(u.races.wins>=n?';color:var(--green)':'')+'">'+n+'</b><span>'+esc(nm)+'</span></div>').join('')+'</div>'+
-  '<button class="btn amber sm" onclick="raceModal()">+ Log a race win</button></div>'+
-  ((u.pending||[]).length||S.queue.some(q=>q.user===S.me)?'<p class="hint" style="margin:10px 2px">You have submissions under crew review.</p>':'')+
+  '<div class="shead"><h2>Race record</h2><span class="badge f">'+r.pct+'% W/L</span></div>'+
+  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
+  '<div class="stat"><b style="color:var(--green)">'+r.w+'</b><span>wins</span></div>'+
+  '<div class="stat"><b style="color:var(--red-hot)">'+r.l+'</b><span>losses</span></div>'+
+  '<div class="stat"><b>'+r.t+'</b><span>races</span></div></div>'+
+  '<p class="hint" style="margin:8px 2px">Race results only count when the <b>host confirms them at a sanctioned event</b> — after your car clears inspection. No street claims, no fake wins.</p>'+
+  // challenges
+  (myChallenges.length?'<div class="shead"><h2>Challenges</h2></div>'+myChallenges.map(c=>{
+    const other=S.users[c.from===mine?c.to:c.from]||{nick:'?'};const incoming=c.to===mine&&c.status==='pending';
+    return '<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>'+nn(other)+'</b> '+
+      (c.from===mine?'— you challenged them':'— challenged you')+
+      '<div class="hint">Settle it at: '+esc(c.venue)+' · '+esc(c.status)+'</div>'+
+      (incoming?'<div class="qbtns"><button class="btn sm amber" onclick="acceptChallenge(\''+c.id+'\')">Accept — see you there</button>'+
+        '<button class="btn sm line" onclick="declineChallenge(\''+c.id+'\')">Decline</button></div>':'')+'</div>';
+  }).join(''):'')+
+  // events with check-in + racing
+  '<div class="shead"><h2><s>Events</s> — Check in &amp; race</h2></div>'+
+  S.events.map(ev=>eventRaceCard(ev,u)).join('')+
   missionsHTML(u);
 }
-function raceModal(){
+function eventRaceCard(ev,u){
+  const ci=ev.checkin.includes(u.id),racing=ev.racers.includes(u.id),host=u.master||ev.host===u.id;
+  const [lab,cls]=ETYPES[ev.type]||['Event','cat'];
+  return '<div class="card" style="padding:14px;margin-bottom:12px">'+
+  '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+  '<div><span class="badge '+cls+'">'+lab.toUpperCase()+'</span><h3 style="margin-top:6px">'+esc(ev.title)+'</h3>'+
+  '<div class="hint">'+esc(ev.when)+' · '+esc(ev.venue)+'</div></div>'+
+  (ev.trophy?'<span class="badge f">🏆 '+esc(ev.trophy)+'</span>':'')+'</div>'+
+  ((ev.fee||ev.raceFee||ev.purse)?'<div class="hint" style="margin-top:8px">'+
+    (ev.fee?'Entry <b class="mono">'+fmt(ev.fee)+'</b> · ':'')+(ev.raceFee?'Race reg <b class="mono">'+fmt(ev.raceFee)+'</b> · ':'')+
+    (ev.purse?'Purse <b class="mono" style="color:var(--amber)">'+fmt(ev.purse)+'</b>':'')+
+    ' <span class="badge founder">FREE @ LAUNCH</span></div>':'')+
+  '<div class="qbtns" style="flex-wrap:wrap">'+
+  (ci?'<span class="badge v">✓ CHECKED IN</span>':'<button class="btn sm amber" onclick="checkIn(\''+ev.id+'\')">📷 Scan QR to check in</button>')+
+  (ci?(racing?'<span class="badge f">🏁 RACING</span>':'<button class="btn sm ghost" onclick="toggleRacer(\''+ev.id+'\')">I want to race</button>'):'')+
+  (ci?'<button class="btn sm ghost" onclick="showPass(\''+ev.id+'\')">🪪 My inspection pass</button>':'')+
+  '</div>'+
+  (ci?'<div class="hint" style="margin-top:8px">'+insBadge(ev,u.id)+'</div>':'')+
+  (ev.results.length?'<div style="margin-top:8px">'+ev.results.map(rs=>'<div class="hint">🏁 '+esc((S.users[rs.w]||{}).nick||'?')+' def. '+esc((S.users[rs.l]||{}).nick||'?')+(rs.note?' — '+esc(rs.note):'')+'</div>').join('')+'</div>':'')+
+  (host&&ev.racers.length?'<div class="shead" style="margin:12px 0 6px"><h2 style="font-size:14px">👑 Inspection station</h2></div>'+
+    ev.racers.map(id=>{const x=S.users[id]||{nick:'?'};const ins=(ev.inspections||{})[id];
+      return '<div class="arow" style="padding:8px 10px;margin-bottom:6px;border:1px solid var(--line);border-radius:10px">'+
+      '<div style="flex:1;min-width:0"><b>'+esc(x.nick)+'</b> '+insBadge(ev,id)+'</div>'+
+      '<div class="abtns"><button class="abtn dn" title="Fail" onclick="inspect(\''+ev.id+'\',\''+id+'\',false)">✕</button>'+
+      '<button class="abtn up" title="Approve" onclick="inspect(\''+ev.id+'\',\''+id+'\',true)">✓</button></div></div>';
+    }).join(''):'')+
+  (host&&ev.racers.length>=2?'<button class="btn sm line" style="margin-top:6px" onclick="logRaceModal(\''+ev.id+'\')">🏁 Log a race result</button>':'')+
+  '</div>';
+}
+function checkIn(eid){
+  const ev=S.events.find(e=>e.id===eid),u=S.users[S.me];
+  if(ev.checkin.includes(u.id))return;
+  ev.checkin.push(u.id);u.attended=u.attended||[];if(!u.attended.includes(eid))u.attended.push(eid);
+  save();award('checkin');render();toast('Checked in at '+ev.title+' — logged to your profile ✓');
+}
+function toggleRacer(eid){
+  const ev=S.events.find(e=>e.id===eid),i=ev.racers.indexOf(S.me);
+  if(i>=0)ev.racers.splice(i,1);else ev.racers.push(S.me);
+  save();render();toast(i>=0?'Pulled out of racing.':'You\'re on the race list. Host confirms results at inspection.');
+}
+function logRaceModal(eid){
+  const ev=S.events.find(e=>e.id===eid);
+  const racers=ev.racers.map(id=>S.users[id]).filter(Boolean);
+  const opts=racers.map(x=>'<option value="'+x.id+'">'+esc(x.nick)+'</option>').join('');
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
-  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Log a race win</h2>'+
-  '<p style="color:var(--mut);font-size:13px;margin:8px 0 12px">Real proof only — a video link (timeslip, roll clip, track result). The crew reviews before it counts. Fake proof = black flag.</p>'+
-  '<div class="field"><label>Video / proof link</label><input id="rurl" placeholder="https://…"></div>'+
-  '<div class="field"><label>What happened</label><input id="rnote" placeholder="e.g. Won a track heat at Chuckwalla"></div>'+
-  '<button class="btn amber" onclick="submitRace()">Submit for review</button>'+
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Inspection + log result</h2>'+
+  '<p style="color:var(--mut);font-size:13px;margin:8px 0 12px">Host only. Confirm both cars passed inspection, then record who took the W. This is the only way race results count.</p>'+
+  '<div class="field"><label>Winner</label><select id="rw">'+opts+'</select></div>'+
+  '<div class="field"><label>Loser / runner-up</label><select id="rl">'+opts+'</select></div>'+
+  '<div class="field"><label>Note (optional)</label><input id="rn" placeholder="e.g. 11.2 vs 11.6 in the final"></div>'+
+  '<label class="rules"><input type="checkbox" id="rinsp"><span>Both vehicles passed PitLane inspection and the race was run at a sanctioned venue.</span></label>'+
+  '<label class="rules" style="margin-top:6px"><input type="checkbox" id="rtrophy"><span>This is the event final — award the trophy 🏆 to the winner.</span></label>'+
+  '<button class="btn amber" onclick="logRace(\''+eid+'\')">Confirm result</button>'+
   '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
   document.body.appendChild(ov);
 }
-function submitRace(){
-  const url=$('#rurl').value.trim();if(!url)return toast('Add the proof link.');
-  S.queue.push({id:'q'+Date.now(),type:'race',user:S.me,videoUrl:url,note:$('#rnote').value.trim(),claim:1});
-  save();document.querySelector('.overlay').remove();render();toast('Submitted — the crew will verify it.');
+function logRace(eid){
+  const ev=S.events.find(e=>e.id===eid);
+  const w=$('#rw').value,l=$('#rl').value;
+  if(w===l)return toast('Winner and loser must be different racers.');
+  if(!$('#rinsp').checked)return toast('Confirm inspection + sanctioned venue first.');
+  ev.results.push({w,l,note:$('#rn').value.trim()});
+  const wu=S.users[w],lu=S.users[l];
+  wu.races.wins=(wu.races.wins||0)+1;lu.races.losses=(lu.races.losses||0)+1;
+  awardUser(w,'racewin');awardUser(w,'racerun');awardUser(l,'racerun');
+  if($('#rtrophy').checked&&ev.trophy){wu.trophies=wu.trophies||[];wu.trophies.push(ev.title+' — '+ev.trophy);}
+  save();document.querySelector('.overlay').remove();render();
+  toast('Result logged — '+wu.nick+' takes the W 🏁');
 }
-/* override submitProof to route into admin queue too */
-function submitProof(mid){
-  const u=S.users[S.me];u.pending=u.pending||[];
-  if(u.pending.includes(mid))return;
-  u.pending.push(mid);
-  S.queue.push({id:'q'+Date.now(),type:'proof',user:S.me,mid});
-  save();render();toast('Proof submitted — the crew will review it.');
+function acceptChallenge(id){const c=S.challenges.find(x=>x.id===id);c.status='accepted';save();render();toast('Challenge accepted — settle it at '+c.venue);}
+function declineChallenge(id){S.challenges=S.challenges.filter(x=>x.id!==id);save();render();toast('Challenge declined.');}
+function awardUser(uid,mid){
+  const u=S.users[uid],m=MISSIONS.find(x=>x.id===mid);
+  if(!m||!u||u.master)return;
+  u.completed=u.completed||{};
+  if(m.once&&u.completed[mid])return;
+  u.completed[mid]=(u.completed[mid]||0)+1;u.xp=(u.xp||0)+m.xp;
+}
+/* ---- inspection passes (anti-screenshot: rotating code + live clock) ---- */
+function insBadge(ev,uid){const ins=(ev.inspections||{})[uid];
+  if(!ins)return '<span class="badge cat">⧗ AWAITING INSPECTION</span>';
+  return ins.status==='approved'?'<span class="badge v">✓ APPROVED TO RACE</span>'
+    :'<span class="badge" style="background:rgba(232,54,45,.16);color:var(--red-hot)">✕ NOT APPROVED</span>';
+}
+function inspect(eid,uid,ok){
+  const ev=S.events.find(e=>e.id===eid);ev.inspections=ev.inspections||{};
+  ev.inspections[uid]={status:ok?'approved':'failed',seed:Math.random().toString(36).slice(2,10)+uid,by:S.me,at:Date.now()};
+  save();render();toast((ok?'✓ Approved':'✕ Failed')+' — '+(S.users[uid]||{}).nick+'\'s pass updated');
+}
+function passHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function passCode(seed){const w=Math.floor(Date.now()/15000);return String(passHash(seed+'|'+w)%1000000).padStart(6,'0')}
+let passTimer=null;
+function showPass(eid){
+  const ev=S.events.find(e=>e.id===eid),u=S.users[S.me],ins=(ev.inspections||{})[u.id];
+  const car=(u.garage&&u.garage[0])?(u.garage[0].year+' '+u.garage[0].brand+' '+u.garage[0].model):'—';
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov){clearInterval(passTimer);ov.remove()}};
+  document.body.appendChild(ov);
+  function draw(){
+    const ok=ins&&ins.status==='approved',fail=ins&&ins.status==='failed';
+    const bg=ok?'#0d2a17':fail?'#2a0d0d':'#241d08',bd=ok?'#3DD68C':fail?'#E8362D':'#F2B33D';
+    ov.innerHTML='<div class="sheet" style="max-width:440px;text-align:center;background:'+bg+';border:2px solid '+bd+'">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="plogo" style="font-size:16px">PIT<em style="color:'+bd+'">LANE</em></div><span class="hint">INSPECTION PASS</span></div>'+
+    '<div class="ava" style="width:64px;height:64px;font-size:24px;margin:0 auto 8px;border:2px solid '+bd+'">'+esc(u.nick[0])+'</div>'+
+    '<div class="disp" style="font-size:22px">'+nn(u)+'</div>'+
+    '<div class="hint mono">'+esc(u.profileNo)+' · '+esc(car)+'</div>'+
+    '<div class="hint" style="margin-top:2px">'+esc(ev.title)+'</div>'+
+    '<div style="margin:16px 0;padding:16px;border-radius:14px;background:rgba(0,0,0,.30)">'+
+    (ok?'<div class="disp" style="font-size:30px;color:#3DD68C">✓ APPROVED<br>TO RACE</div>'
+      :fail?'<div class="disp" style="font-size:30px;color:#FF5A4E">✕ NOT<br>APPROVED</div>'
+      :'<div class="disp" style="font-size:24px;color:#F2B33D">⧗ AWAITING<br>INSPECTION</div>')+
+    (ok?'<div style="margin-top:14px"><div class="hint" style="letter-spacing:.12em">LIVE VERIFICATION CODE</div>'+
+      '<div class="mono" style="font-size:38px;font-weight:800;letter-spacing:6px;color:#3DD68C">'+passCode(ins.seed)+'</div>'+
+      '<div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:4px"><span style="width:9px;height:9px;border-radius:50%;background:#3DD68C;animation:pulse 1s infinite"></span><span class="hint mono">VALID · '+esc(new Date().toLocaleTimeString())+'</span></div></div>':'')+
+    '</div>'+
+    (ok?'<p class="hint">Officials: the driver\'s face must match this name, and the code + clock must be <b>live-updating</b>. A screenshot freezes — a real pass ticks every second.</p>'
+      :fail?'<p class="hint">This vehicle did not pass inspection. Not cleared to race.</p>'
+      :'<div><img src="'+QR_URI+'" style="width:130px;background:#F4F6FA;padding:8px;border-radius:12px;margin:6px 0" alt="pass QR"><p class="hint">Show this to the host at the inspection station to get checked.</p></div>')+
+    '<button class="btn line" style="margin-top:10px" onclick="clearInterval(passTimer);this.closest(\'.overlay\').remove()">Close</button></div>';
+  }
+  draw();clearInterval(passTimer);passTimer=setInterval(draw,1000);
 }
 
 /* ---- clans ---- */
@@ -1391,24 +1560,88 @@ function drawMap(){
 function toggleVisible(){const u=S.users[S.me];u.loc.visible=!u.loc.visible;
   if(u.loc.visible&&(u.loc.area==='—'||!u.loc.area))u.loc.area='Your spot';save();render();
   toast(u.loc.visible?'You\'re on the map now. 📍':'You went dark.');}
-function joinPin(uid){const x=S.users[uid];toast('Rolling toward '+x.nick+'\'s 20 — '+(x.loc.area||'meet')+' 🏁');}
+function joinPin(uid){
+  const x=S.users[uid];
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  const events=S.events.map(e=>'<option value="'+e.id+'">'+esc(e.title)+' — '+esc(e.when)+'</option>').join('');
+  ov.innerHTML='<div class="sheet"><div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'+
+  '<div class="ava">'+esc(x.nick[0])+'</div><div><h2 class="disp" style="font-size:20px">'+nn(x)+'</h2>'+
+  '<div class="hint">'+(x.master?'★ Master':'P'+x.prestige+' · L'+lvlOf(x.xp).l)+' · '+wl(x).w+'W-'+wl(x).l+'L · '+esc(x.loc.area||'')+'</div></div></div>'+
+  '<p style="color:var(--mut);font-size:13px;margin:10px 0 12px">Line up a race the legal way — pick a sanctioned event and settle it there under inspection. No street racing.</p>'+
+  '<div class="field"><label>Settle it at</label><select id="chv">'+events+'</select></div>'+
+  '<button class="btn amber" onclick="sendChallenge(\''+uid+'\')">🏁 Challenge to race at this event</button>'+
+  '<button class="btn ghost" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove();toast(\'Rolling toward '+esc(x.nick)+'\\\'s meet spot 📍\')">Meet up at their spot</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Close</button></div>';
+  document.body.appendChild(ov);
+}
+function sendChallenge(uid){
+  const ev=S.events.find(e=>e.id===$('#chv').value);
+  S.challenges.push({id:'ch'+Date.now(),from:S.me,to:uid,venue:ev.title+' ('+ev.when+')',status:'pending',t:'Just now'});
+  save();document.querySelector('.overlay').remove();render();
+  toast('Challenge sent to '+S.users[uid].nick+' — settle it at '+ev.title+' 🏁');
+}
+
+/* ---- paddock chat + master announcements ---- */
+function pChat(){
+  const u=S.users[S.me];
+  return '<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Paddock chat</h1>'+
+  (u.master?'<button class="btn amber sm" onclick="announceModal()" style="margin-bottom:12px">📣 Post an event announcement</button>':'')+
+  (S.announcements.length?'<div class="shead"><h2>Announcements</h2></div>'+S.announcements.map(a=>{
+    const host=S.users[a.from]||{nick:'?'};
+    return '<div class="card" style="padding:14px;margin-bottom:10px;border-color:rgba(242,179,61,.4)">'+
+    '<div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:15px">'+esc(a.title)+'</b>'+
+    (a.trophy?'<span class="badge f">🏆</span>':'')+'</div>'+
+    '<div class="hint" style="margin:4px 0">'+esc(a.when||'')+(a.place?' · '+esc(a.place):'')+'</div>'+
+    (a.text?'<p style="font-size:13.5px;color:#C6CDD9">'+esc(a.text)+'</p>':'')+
+    '<div class="hint" style="margin-top:8px">'+(a.trophy?'🏆 '+esc(a.trophy)+' · ':'')+(a.purse?'Purse '+fmt(a.purse)+' · ':'')+(a.xp?'+'+a.xp+' XP':'')+
+    ' · posted by '+nn(host)+' '+esc(a.t||'')+'</div></div>';
+  }).join(''):'')+
+  '<div class="shead"><h2>The lobby</h2></div>'+
+  '<div class="card" style="padding:12px 14px;max-height:340px;overflow-y:auto">'+
+  (S.paddockChat.length?S.paddockChat.map(m=>{const f=S.users[m.from]||{nick:'?'};
+    return '<div style="margin-bottom:10px"><b>'+nn(f)+'</b> <span class="hint">'+esc(m.t||'')+'</span><div style="font-size:14px;color:#DDE3EC">'+esc(m.text)+'</div></div>';
+  }).join(''):'<p class="hint">Be the first to say something.</p>')+'</div>'+
+  '<div style="display:flex;gap:8px;margin-top:10px"><input id="pcmsg" placeholder="Talk to the paddock…" onkeydown="if(event.key===\'Enter\')postChat()">'+
+  '<button class="btn" style="flex:0 0 70px" onclick="postChat()">Send</button></div>';
+}
+function postChat(){
+  const el=$('#pcmsg'),t=el.value.trim();if(!t)return;
+  const now=new Date(),hh=((now.getHours()+11)%12+1),mm=String(now.getMinutes()).padStart(2,'0'),ap=now.getHours()>=12?'PM':'AM';
+  S.paddockChat.push({from:S.me,text:t,t:hh+':'+mm+' '+ap});save();render();
+  const box=document.querySelector('.card[style*="overflow-y"]');if(box)box.scrollTop=box.scrollHeight;
+}
+function announceModal(){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">📣 Event announcement</h2>'+
+  '<div class="field" style="margin-top:10px"><label>Title</label><input id="an_t" placeholder="Bracket Night — Aug 1"></div>'+
+  '<div class="field"><label>When</label><input id="an_w" placeholder="Fri Aug 1, gates 6pm"></div>'+
+  '<div class="field"><label>Place (sanctioned venue)</label><input id="an_p" placeholder="Pacific Raceways 1/4 mile"></div>'+
+  '<div class="row2"><div class="field"><label>Trophy</label><input id="an_tr" placeholder="Bracket Champion"></div>'+
+  '<div class="field"><label>XP to winner</label><input id="an_xp" inputmode="numeric" placeholder="400"></div></div>'+
+  '<div class="field"><label>Details</label><textarea id="an_x" rows="3" placeholder="Rules, inspection time, prize…"></textarea></div>'+
+  '<button class="btn amber" onclick="postAnnounce()">Post to paddock</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function postAnnounce(){
+  const t=$('#an_t').value.trim();if(!t)return toast('Give it a title.');
+  S.announcements.unshift({id:'an'+Date.now(),from:S.me,title:t,when:$('#an_w').value.trim(),place:$('#an_p').value.trim(),
+    trophy:$('#an_tr').value.trim(),xp:+($('#an_xp').value||0),purse:0,text:$('#an_x').value.trim(),t:'Just now'});
+  save();document.querySelector('.overlay').remove();render();toast('Announcement posted to the paddock 📣');
+}
 
 /* ---- admin (Master only) ---- */
 function pAdmin(){
   const me=S.users[S.me];
   if(!me.master)return '<div class="empty">Master access only.</div>';
-  const q=S.queue;
+  const pend=S.challenges.filter(c=>c.status!=='logged');
   return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Master control</h1>'+
-  '<p class="hint" style="margin-bottom:12px">Level anyone up or down, hand out prestige, and verify proof. Your word is final.</p>'+
-  '<div class="shead"><h2><s>Review queue</s></h2><span class="badge f">'+q.length+'</span></div>'+
-  (q.length?q.map(item=>{const u=S.users[item.user]||{nick:'?'};
-    const label=item.type==='race'?('Race win claim'):('Mission: '+(MISSIONS.find(m=>m.id===item.mid)||{t:item.mid}).t);
-    return '<div class="card queueitem"><b>'+nn(u)+'</b> <span class="hint">· '+label+'</span>'+
-    (item.videoUrl?'<div class="hint" style="margin-top:4px;word-break:break-all">🎥 '+esc(item.videoUrl)+'</div>':'')+
-    (item.note?'<div class="hint">"'+esc(item.note)+'"</div>':'')+
-    '<div class="qbtns"><button class="btn sm amber" onclick="adminApprove(\''+item.id+'\',true)">Approve</button>'+
-    '<button class="btn sm line" onclick="adminApprove(\''+item.id+'\',false)">Deny</button></div></div>';
-  }).join(''):'<div class="card empty">Queue clear. Nothing to review.</div>')+
+  '<p class="hint" style="margin-bottom:12px">Level anyone up or down, hand out prestige, and run the scene. Race results get confirmed by you at each event under <b>Races → Inspection + log a result</b>.</p>'+
+  '<div class="launchnote">🏁 <b>Where results come from:</b> open <b>Races</b>, pick an event, and use <b>Inspection + log a result</b> to confirm who took the W. That\'s the only path to race XP — keeps randoms from ranking themselves up.</div>'+
+  '<div class="shead"><h2>Open challenges</h2><span class="badge f">'+pend.length+'</span></div>'+
+  (pend.length?pend.map(c=>{const a=S.users[c.from]||{nick:'?'},b=S.users[c.to]||{nick:'?'};
+    return '<div class="card queueitem"><b>'+nn(a)+'</b> vs <b>'+nn(b)+'</b><div class="hint">'+esc(c.venue)+' · '+esc(c.status)+'</div></div>';
+  }).join(''):'<div class="card empty">No open challenges.</div>')+
   '<div class="shead"><h2>Members</h2></div>'+
   Object.values(S.users).map(u=>{const {l}=u.master?{l:MAXLVL}:lvlOf(u.xp||0);
     return '<div class="card arow"><div class="ava" style="width:38px;height:38px;font-size:14px;flex:0 0 38px">'+esc(u.nick[0])+'</div>'+
@@ -1459,6 +1692,9 @@ MISSIONS.push({id:'first_build',t:'Spec\'d Out',d:'Save your first car build in 
 /* =================== BOOT =================== */
 let world='market',ptab='home',unlocked=false;
 load();
-if(S.me){tab='market';view={name:'tab'}}
+let deepU=new URLSearchParams(location.search).get('u');
+function openDeep(){if(!deepU)return false;const du=Object.values(S.users).find(x=>x.profileNo===deepU);deepU=null;
+  if(du){world='market';view={name:'user',arg:du.id};return true}return false}
+if(S.me){tab='market';view={name:'tab'};openDeep();}
 render();
 </script>
