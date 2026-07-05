@@ -345,6 +345,7 @@ nav.pnav .sellbtn{background:var(--amber);box-shadow:0 6px 22px rgba(242,179,61,
 <div id="app"></div>
 <div id="toast" role="status"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* =================== PITLANE v0.1 — prototype (local data) =================== */
 'use strict';
@@ -515,7 +516,7 @@ function L(id,seller,cat,title,model,price,loc,miles,title_st,vin,mods,desc,boos
 }
 function E(id,host,type,title,when,mo,day,venue,desc,going,extra){return Object.assign({id,host,type,title,when,mo,day,venue,desc,going,fee:0,raceFee:0,purse:0,trophy:'',checkin:[],racers:[],results:[],inspections:{}},extra||{})}
 
-function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));if(typeof cloudSaveMe==='function')cloudSaveMe();}
 function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch(e){} if(!S)S=seed();
   S.clans=S.clans||[];S.queue=S.queue||[];S.clubPass=S.clubPass||CLUB_DEFAULT;S.pno=S.pno||1;
   S.challenges=S.challenges||[];S.paddockChat=S.paddockChat||[];S.announcements=S.announcements||[];
@@ -564,11 +565,13 @@ function art(l,label){
 function go(name,arg){view={name,arg};render();window.scrollTo(0,0)}
 function setTab(t){tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
 function render(){
-  if(!S.me&&!['auth-welcome','auth-signup','auth-verify'].includes(view.name))view={name:'auth-welcome'};
+  if(!S.me&&!['auth-welcome','auth-signup','auth-verify','auth-login','auth-check'].includes(view.name))view={name:'auth-welcome'};
   const v=view.name;
   if(v==='auth-welcome')return APP.innerHTML=vWelcome();
   if(v==='auth-signup')return APP.innerHTML=vSignup();
   if(v==='auth-verify')return APP.innerHTML=vVerify();
+  if(v==='auth-login')return APP.innerHTML=vLogin();
+  if(v==='auth-check')return APP.innerHTML=vCheck();
   if(v==='listing')return APP.innerHTML=shell(vListing(view.arg),false);
   if(v==='wizard')return APP.innerHTML=shell(vWizard(),false);
   if(v==='convo')return APP.innerHTML=shell(vConvo(view.arg),false);
@@ -601,8 +604,29 @@ function vWelcome(){
   '<p style="color:var(--mut);margin:16px 0 6px;max-width:34ch">The marketplace built by the racing scene, for the racing scene. Cars, bikes, quads, skis, engines — if it doesn\'t rev, it doesn\'t list.</p>'+
   '<p class="eyebrow" style="margin:10px 0 28px">Real names · Real photos · Real builds</p>'+
   '<button class="btn" onclick="go(\'auth-signup\')">Create account</button>'+
-  '<button class="btn ghost" style="margin-top:10px" onclick="demoLogin()">Enter as Trippzy — Founder</button>'+
-  '<p class="hint" style="text-align:center;margin-top:22px">Prototype build v0.1 — data lives on this device only.</p></div>';
+  (CLOUD?'<button class="btn ghost" style="margin-top:10px" onclick="go(\'auth-login\')">Log in</button>'
+        :'<button class="btn ghost" style="margin-top:10px" onclick="demoLogin()">Enter as Trippzy — Founder</button>')+
+  '<p class="hint" style="text-align:center;margin-top:22px">'+(CLOUD?'Live · real accounts · your data syncs everywhere':'Local demo — data lives on this device only')+'</p></div>';
+}
+function vLogin(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<button class="back" onclick="go(\'auth-welcome\')">&#8592; Back</button>'+
+  '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Welcome back</h1>'+
+  '<p style="color:var(--mut);font-size:14px;margin-bottom:20px">Log in to the grid.</p>'+
+  '<div class="field"><label for="li_email">Email</label><input id="li_email" type="email" autocomplete="email"></div>'+
+  '<div class="field"><label for="li_pw">Password</label><input id="li_pw" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')login()"></div>'+
+  '<button class="btn" onclick="login()">Log in</button>'+
+  '<p class="hint" style="text-align:center;margin-top:16px">No account? <a href="#" onclick="go(\'auth-signup\');return false" style="color:var(--red-hot)">Create one</a></p></div>';
+}
+async function login(){
+  const email=$('#li_email').value.trim(),pw=$('#li_pw').value;
+  if(!email||!pw)return toast('Enter your email and password.');
+  toast('Logging in…');
+  const {error}=await cloudLogin(email,pw);
+  if(error)return toast(error.message.includes('confirm')?'Confirm your email first — check your inbox.':error.message);
+  await cloudLoadMe();await cloudLoadShared();
+  tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();
+  toast('Welcome back, '+(S.users[S.me]||{}).nick+' 🏁');
 }
 function vSignup(){
   return '<div class="auth"><div class="glow"></div>'+
@@ -612,12 +636,12 @@ function vSignup(){
   '<div class="row2"><div class="field"><label for="f_first">First name</label><input id="f_first" autocomplete="given-name"></div>'+
   '<div class="field"><label for="f_last">Last name</label><input id="f_last" autocomplete="family-name"></div></div>'+
   '<div class="field"><label for="f_nick">Nickname — your scene name</label><input id="f_nick" placeholder="e.g. NightShift, BoostedMarv" maxlength="20"></div>'+
-  '<div class="field"><label for="f_email">Email</label><input id="f_email" type="email" autocomplete="email"><p class="hint">We\'ll send a 6-digit code to verify it.</p></div>'+
+  '<div class="field"><label for="f_email">Email</label><input id="f_email" type="email" autocomplete="email"><p class="hint">'+(typeof CLOUD!=='undefined'&&CLOUD?'We\'ll email you a confirmation link.':'We\'ll send a 6-digit code to verify it.')+'</p></div>'+
   '<div class="field"><label for="f_pw">Password</label><input id="f_pw" type="password" autocomplete="new-password"></div>'+
   '<label class="rules"><input type="checkbox" id="f_rules"><span>I agree to the <b>PitLane Rules</b>: real photos of my actual vehicle, accurate title status, lawful sales only, and community events at sanctioned venues. Listings that break the rules get black-flagged.</span></label>'+
-  '<button class="btn" onclick="signup()">Send verification code</button></div>';
+  '<button class="btn" onclick="signup()">'+(typeof CLOUD!=='undefined'&&CLOUD?'Create account':'Send verification code')+'</button></div>';
 }
-function signup(){
+async function signup(){
   const first=$('#f_first').value.trim(),last=$('#f_last').value.trim(),
         nick=$('#f_nick').value.trim(),email=$('#f_email').value.trim(),pw=$('#f_pw').value;
   if(!first||!last)return toast('Real first and last name are required.');
@@ -625,9 +649,24 @@ function signup(){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return toast('Enter a valid email.');
   if(pw.length<6)return toast('Password needs 6+ characters.');
   if(!$('#f_rules').checked)return toast('You have to accept the PitLane Rules.');
+  if(CLOUD){
+    toast('Creating account…');
+    const {data,error}=await cloudSignup(first,last,nick,email,pw);
+    if(error)return toast(error.message);
+    pend={email};go('auth-check');return;
+  }
   const code=String(Math.floor(100000+Math.random()*900000));
   pend={first,last,nick,email,code};
   go('auth-verify');
+}
+function vCheck(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<button class="back" onclick="go(\'auth-welcome\')">&#8592; Back</button>'+
+  '<div class="lockring" style="border-color:var(--green)"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></div>'+
+  '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Check your email</h1>'+
+  '<p style="color:var(--mut);font-size:14px">We sent a confirmation link to <b style="color:var(--text)">'+esc(pend.email)+'</b>. Click it to verify your account, then come back and log in.</p>'+
+  '<button class="btn" style="margin-top:20px" onclick="go(\'auth-login\')">I confirmed — log in</button>'+
+  '<p class="hint" style="text-align:center;margin-top:14px">Didn\'t get it? Check spam. On the free tier, emails can take a minute.</p></div>';
 }
 function vVerify(){
   return '<div class="auth"><div class="glow"></div>'+
@@ -840,19 +879,27 @@ function slotFile(inp,i){
   rd.onload=()=>{W.photos[i]=rd.result;render()};
   rd.readAsDataURL(f);
 }
-function publish(){
+async function publish(){
   if(!$('#w_legal').checked)return toast('You must confirm ownership and accuracy first.');
   const d=W.data,[h1,h2]=HUES[W.cat];
-  const real=Object.values(W.photos).filter(p=>p!=='demo');
-  S.listings.unshift({id:'l'+Date.now(),seller:S.me,cat:W.cat,title:d.title.trim(),
+  let real=Object.values(W.photos).filter(p=>p!=='demo');
+  const realCount=real.length;
+  if(CLOUD&&real.length){
+    toast('Uploading photos…');
+    const urls=[];
+    for(const p of real){try{const blob=await (await fetch(p)).blob();const u=await cloudUpload(blob);if(u)urls.push(u);}catch(e){}}
+    if(urls.length)real=urls;
+  }
+  const listing={id:'l'+Date.now(),seller:S.me,cat:W.cat,title:d.title.trim(),
     model:(d.model||'').toUpperCase(),price:+d.price,loc:d.loc,miles:+(d.miles||0),
     titleStatus:d.titleStatus||'clean',vin:d.vin.trim().toUpperCase(),
     mods:(d.mods||'').split('\n').map(s=>s.trim()).filter(Boolean),
     desc:d.desc||'',boosted:false,hue:h1+Math.floor(Math.random()*(h2-h1)),
-    photos:real.length?real:null,posted:'Jul 2026'});
-  save();
+    photos:real.length?real:null,posted:'Jul 2026'};
+  S.listings.unshift(listing);save();
+  if(CLOUD)await cloudPublishListing(listing);
   award('first_listing');award('lister');
-  if(real.length>=6)award('full_set');
+  if(realCount>=6)award('full_set');
   W=null;S._cat='all';S._q='';setTab('market');
   toast('Live on the grid. Boost it for free while launch season lasts ★');
 }
@@ -1014,7 +1061,7 @@ function vUser(uid,self){
    '<button class="btn line" style="margin-top:10px" onclick="logout()">Sign out</button>'+
    '<p class="hint" style="text-align:center;margin-top:18px">PitLane v0.1 prototype · lawful sales only · events at sanctioned venues only</p>':'');
 }
-function logout(){S.me=null;save();view={name:'auth-welcome'};render()}
+function logout(){if(CLOUD){sb.auth.signOut().catch(()=>{})}S.me=null;localStorage.setItem(KEY,JSON.stringify(S));view={name:'auth-welcome'};render()}
 /* ---- seller reviews (after a sale) ---- */
 function reviewsBlock(u,uid,self){
   const revs=u.reviews||[];const avg=revs.length?(revs.reduce((a,r)=>a+r.stars,0)/revs.length):0;
@@ -1827,14 +1874,90 @@ function pQR(){
 /* add build mission to catalog */
 MISSIONS.push({id:'first_build',t:'Spec\'d Out',d:'Save your first car build in the garage',xp:250,once:1});
 
+/* =================== SUPABASE CLOUD =================== */
+const SB_URL='https://mhuhdbtqjktrieszgefo.supabase.co';
+const SB_KEY='sb_publishable_XbMw9s9Dt1OWdpHEudgALg_3sQyyER_';
+let sb=null,CLOUD=false,_saveTimer=null;
+function cloudReady(){try{if(!sb&&window.supabase&&window.supabase.createClient){sb=window.supabase.createClient(SB_URL,SB_KEY)}if(sb)CLOUD=true}catch(e){CLOUD=false}return CLOUD}
+function profileToUser(row,email){
+  if(row.data&&row.data.nick){const u=row.data;u.id=row.id;u.profileNo=row.profile_no||u.profileNo;
+    u.master=row.master;u.founder=row.founder;u.prestige=row.prestige;u.xp=row.xp;return u;}
+  return {id:row.id,first:row.first_name||'',last:row.last_name||'',nick:row.nick||'racer',email:email||'',
+    verified:true,founder:!!row.founder,master:!!row.master,prestige:row.prestige||0,xp:row.xp||0,
+    profileNo:row.profile_no,rating:0,sales:0,joined:'2026',races:{wins:0,losses:0},garage:[],carPhotos:[],
+    trophies:[],attended:[],completed:{},pending:[],unlockedTitles:[],unlockedEmblems:[],clan:null,
+    bio:row.bio||'',eqCard:null,eqName:row.eq_name||null,saved:[],reviews:[],spotShots:{},
+    loc:{x:20+Math.random()*60,y:20+Math.random()*60,visible:false,area:'—'}};
+}
+async function cloudLoadMe(){
+  const {data:{user}}=await sb.auth.getUser();if(!user)return null;
+  let {data:row}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(!row){const m=user.user_metadata||{};
+    await sb.from('profiles').insert({id:user.id,first_name:m.first||'',last_name:m.last||'',nick:m.nick||user.email.split('@')[0],verified:true});
+    ({data:row}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle());}
+  const u=profileToUser(row,user.email);S.users[user.id]=u;S.me=user.id;save();return u;
+}
+async function cloudLoadShared(){
+  try{
+    const {data:profs}=await sb.from('profiles').select('*');
+    (profs||[]).forEach(r=>{if(r.id!==S.me)S.users[r.id]=profileToUser(r,'');});
+    const {data:lst}=await sb.from('listings').select('data').order('created_at',{ascending:false});
+    if(lst)S.listings=lst.map(x=>x.data).filter(Boolean);
+    const {data:evs}=await sb.from('events').select('data').order('created_at',{ascending:false});
+    if(evs&&evs.length)S.events=evs.map(x=>x.data).filter(Boolean);
+    save();
+  }catch(e){console.warn('shared load',e)}
+}
+function cloudSaveMe(){
+  if(!CLOUD||!S.me)return;clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(async()=>{const u=S.users[S.me];if(!u)return;
+    try{await sb.from('profiles').update({nick:u.nick,prestige:u.prestige||0,xp:u.xp||0,master:!!u.master,
+      founder:!!u.founder,eq_name:u.eqName||null,bio:u.bio||'',data:u}).eq('id',S.me);}catch(e){}
+  },800);
+}
+async function cloudPublishListing(l){
+  if(!CLOUD)return;
+  try{await sb.from('listings').insert({seller:S.me,category:l.cat,title:l.title,model:l.model,price:l.price,
+    location:l.loc,miles:l.miles,title_status:l.titleStatus,vin:l.vin,description:l.desc,data:l});}catch(e){toast('Cloud save failed — saved locally.')}
+}
+async function cloudUpload(file){
+  if(!CLOUD)return null;
+  try{const path=S.me+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
+    const {error}=await sb.storage.from('photos').upload(path,file,{upsert:true});
+    if(error)return null;return sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+  }catch(e){return null}
+}
+async function cloudSignup(first,last,nick,email,pw){
+  return await sb.auth.signUp({email,password:pw,options:{data:{first,last,nick}}});
+}
+async function cloudLogin(email,pw){return await sb.auth.signInWithPassword({email,password:pw});}
+async function cloudBoot(){
+  if(!cloudReady())return;
+  try{const {data}=await sb.auth.getSession();
+    if(data.session){await cloudLoadMe();await cloudLoadShared();
+      tab='market';view={name:'tab'};openDeep&&openDeep();}
+    else{view={name:'auth-welcome'};}
+  }catch(e){console.warn('cloudBoot',e)}
+  render();
+}
+
 /* =================== BOOT =================== */
 let world='market',ptab='home',unlocked=false;
-load();
 let deepU=new URLSearchParams(location.search).get('u');
 function openDeep(){if(!deepU)return false;const du=Object.values(S.users).find(x=>x.profileNo===deepU);deepU=null;
   if(du){world='market';view={name:'user',arg:du.id};return true}return false}
-if(S.me){tab='market';view={name:'tab'};openDeep();}
-render();
+if(window.supabase&&window.supabase.createClient){
+  // CLOUD MODE — real accounts + shared data
+  cloudReady();
+  S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],clubPass:'redline',pno:1};
+  view={name:'auth-welcome'};render();
+  cloudBoot();
+}else{
+  // LOCAL DEMO MODE (offline / artifact preview)
+  load();
+  if(S.me){tab='market';view={name:'tab'};openDeep();}
+  render();
+}
 </script>
 
 <!-- v0.6 -->
