@@ -165,3 +165,69 @@ end $$ language plpgsql;
 drop trigger if exists trg_gold on profiles;
 create trigger trg_gold before insert or update on profiles
   for each row execute function guard_gold();
+
+-- ============================================================
+-- MASTER/FOUNDER GUARD — the admin flags must NEVER be settable
+-- from the browser. Without this, any logged-in user can POST
+-- {master:true} to their own profile (RLS allows self-update) and
+-- become a second founder with full admin powers.
+-- This trigger freezes master/founder on the client path; only a
+-- privileged role (service_role / postgres) can change them.
+-- Also strips them out of the JSON `data` blob so the app can't
+-- read a forged flag back either.
+-- ============================================================
+create or replace function guard_master() returns trigger as $$
+begin
+  if current_setting('role', true) = 'service_role' or current_user = 'postgres' then
+    return new;                     -- trusted path: allow (admin/CLI grants)
+  end if;
+  if tg_op = 'INSERT' then
+    new.master  := false;
+    new.founder := false;
+  else
+    new.master  := old.master;      -- keep whatever the server last set
+    new.founder := old.founder;
+  end if;
+  -- never let a forged flag ride in on the JSON blob
+  if new.data is not null then
+    new.data := (new.data - 'master') - 'founder';
+  end if;
+  return new;
+end $$ language plpgsql security definer;
+drop trigger if exists trg_master on profiles;
+create trigger trg_master before insert or update on profiles
+  for each row execute function guard_master();
+
+-- Grant the founder their crown (run once, as the SQL editor = privileged role):
+--   update profiles set master = true, founder = true
+--   where id = (select id from auth.users where email = 'rjohn7148@gmail.com');
+
+-- ============================================================
+-- VIEW COUNTER — buyers aren't the listing owner, so RLS blocks
+-- them from writing the row. This SECURITY DEFINER function does
+-- the increment server-side so view counts actually accrue.
+-- ============================================================
+create or replace function bump_view(lid text) returns void as $$
+  update listings
+     set data = jsonb_set(data, '{views}',
+                to_jsonb(coalesce((data->>'views')::int, 0) + 1))
+   where data->>'id' = lid;
+$$ language sql security definer;
+
+-- ============================================================
+-- APP_DATA — shared community store (chat, clans, dm, report,
+-- flag, rsvp, review, merch, order, loc, announce, challenge).
+-- Public read; any authed user can write their own rows.
+-- ============================================================
+alter table if exists app_data enable row level security;
+do $$ begin
+  create policy "public read app_data"  on app_data for select using (true);
+  create policy "authed write app_data" on app_data for insert with check (auth.uid() = owner);
+  create policy "owner update app_data" on app_data for update using (auth.uid() = owner);
+  create policy "owner delete app_data" on app_data for delete using (auth.uid() = owner);
+exception when duplicate_object then null; end $$;
+
+-- Make sure realtime broadcasts DELETEs with the old row id
+-- (needed for un-flag / un-RSVP / dismissed-report to propagate live):
+alter table app_data replica identity full;
+alter table listings replica identity full;

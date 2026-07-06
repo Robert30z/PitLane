@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <!--
   PitLane — Copyright © 2026 Roberto M. All rights reserved.
   Proprietary. No copying, reuse, or derivative works without written permission.
@@ -362,7 +363,7 @@ nav.pnav .sellbtn{background:var(--amber);box-shadow:0 6px 22px rgba(242,179,61,
 <div id="app"></div>
 <div id="toast" role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 <script>
 /* =================== PITLANE v0.1 — prototype (local data) =================== */
 'use strict';
@@ -370,6 +371,12 @@ const $=s=>document.querySelector(s);
 const APP=$('#app');
 const KEY='pitlane_v1';
 const CATS=[['all','All'],['cars','Cars'],['moto','Motorcycles'],['atv','ATV / UTV'],['water','Watercraft'],['parts','Parts & Engines']];
+/* ---- Stripe Payment Links (static-site checkout, no backend) ----
+   Create a Payment Link per item at dashboard.stripe.com/payment-links, then paste the URL here
+   (or set stripe:"https://buy.stripe.com/..." on the merch item, or STRIPE.pitpass / STRIPE.boost).
+   Any item without a link falls back to the "reserve — founder confirms" flow. */
+const STRIPE={pitpass:'',boost:'',links:{/* 'm1':'https://buy.stripe.com/xxx' */}};
+function stripeLinkFor(m){return (m&&m.stripe)||STRIPE.links[m&&m.id]||'';}
 const HUES={cars:[215,255],moto:[350,20],atv:[95,140],water:[190,215],parts:[35,55]};
 const SHOTS=['Front 3/4','Rear 3/4','Engine bay','Odometer','VIN plate','Interior'];
 
@@ -567,6 +574,20 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=n=>'$'+Number(n).toLocaleString('en-US');
 const stars=r=>'★'.repeat(Math.round(r))+'☆'.repeat(5-Math.round(r));
 const maskVIN=v=>v.length>6?'•••••••••••'+v.slice(-6):v;
+/* ids coming back from the cloud get interpolated into onclick handlers — only accept safe ones */
+const okId=s=>typeof s==='string'&&/^[A-Za-z0-9_:.\-]{1,64}$/.test(s);
+const cleanRec=d=>(d&&okId(d.id))?d:null;
+/* compress photos before storing/uploading — phone shots are 4-8MB, listings only need ~1600px */
+function shrink(file){return new Promise(res=>{const rd=new FileReader();
+  rd.onload=()=>{const img=new Image();
+    img.onload=()=>{const MAX=1600,k=Math.min(1,MAX/Math.max(img.width,img.height));
+      if(k>=1&&(file.size||0)<400000)return res(rd.result);
+      const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.82))};
+    img.onerror=()=>res(rd.result);img.src=rd.result};
+  rd.readAsDataURL(file)})}
+let _syncWarned=0;
+function syncWarn(){const n=Date.now();if(n-_syncWarned>30000){_syncWarned=n;toast('⚠️ Cloud sync issue — some changes may not have saved.')}}
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';
   clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
 function icon(n){const p={
@@ -678,7 +699,7 @@ async function login(){
   const {error}=await cloudLogin(email,pw);
   if(error)return toast(error.message.includes('confirm')?'Confirm your email first — check your inbox.':error.message);
   await cloudLoadMe();await cloudLoadShared();cloudRealtime();
-  tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();
+  tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();askPush();
   toast('Welcome back, '+(S.users[S.me]||{}).nick+' 🏁');
 }
 function vSignup(){
@@ -707,7 +728,7 @@ async function signup(){
     const {data,error}=await cloudSignup(first,last,nick,email,pw);
     if(error)return toast(error.message.includes('already')?'That email already has an account — try logging in.':error.message);
     if(data&&data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
-      tab='market';view={name:'tab'};render();toast('Welcome to the grid, '+nick+' 🏁');return;}
+      tab='market';view={name:'tab'};render();askPush();toast('Welcome to the grid, '+nick+' 🏁');return;}
     pend={email};go('auth-check');return;
   }
   const code=String(Math.floor(100000+Math.random()*900000));
@@ -748,11 +769,23 @@ function demoLogin(){S.me='trippzy';save();tab='market';view={name:'tab'};if(typ
 /* =================== MARKET =================== */
 function vMarket(){
   const q=(S._q||'').toLowerCase(),cat=S._cat||'all';
-  let ls=S.listings.filter(l=>(cat==='all'||l.cat===cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q)));
-  const feat=ls.filter(l=>l.boosted);
+  const pmin=+(S._pmin||0)||0,pmax=+(S._pmax||0)||Infinity;
+  let ls=S.listings.filter(l=>(cat==='all'||l.cat===cat)
+    &&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q))
+    &&(+l.price>=pmin&&+l.price<=pmax)
+    &&(!isFlagged(l.id)||l.seller===S.me));
+  const srt=S._sort||'new';
+  ls.sort((a,b)=>(a.sold?1:0)-(b.sold?1:0)||(srt==='plo'?a.price-b.price:srt==='phi'?b.price-a.price:0));
+  const feat=ls.filter(l=>l.boosted&&!l.sold);
   const me=S.me?S.users[S.me]:null,saved=(me&&me.saved)||[];
-  return '<div style="display:flex;gap:8px;margin-bottom:12px"><input placeholder="Search the grid — Supra, K24, CBR…" value="'+esc(S._q||'')+'" oninput="S._q=this.value;render()">'+
+  return '<div style="display:flex;gap:8px;margin-bottom:8px"><input placeholder="Search the grid — Supra, K24, CBR…" value="'+esc(S._q||'')+'" oninput="S._q=this.value;render()">'+
   ((S._q||cat!=='all')?'<button class="btn sm amber" style="flex:0 0 auto" onclick="saveSearch()">🔖 Save</button>':'')+'</div>'+
+  '<div style="display:flex;gap:8px;margin-bottom:10px">'+
+  '<select style="flex:1.3;padding:8px 10px;font-size:13px" onchange="S._sort=this.value;render()">'+
+    [['new','Newest'],['plo','Price: low → high'],['phi','Price: high → low']].map(([k,lab])=>'<option value="'+k+'"'+(srt===k?' selected':'')+'>'+lab+'</option>').join('')+'</select>'+
+  '<input style="flex:1;padding:8px 10px;font-size:13px" inputmode="numeric" placeholder="$ min" value="'+esc(S._pmin||'')+'" onchange="S._pmin=this.value;render()">'+
+  '<input style="flex:1;padding:8px 10px;font-size:13px" inputmode="numeric" placeholder="$ max" value="'+esc(S._pmax||'')+'" onchange="S._pmax=this.value;render()">'+
+  '</div>'+
   (saved.length?'<div class="chips">'+saved.map((s,i)=>{const cnt=matchCount(s);
     return '<button class="chip" onclick="runSaved('+i+')">🔖 '+esc(s.q||CATS.find(c=>c[0]===s.cat)[1])+(cnt?' <span style="color:var(--amber)">'+cnt+'</span>':'')+' <span onclick="event.stopPropagation();rmSaved('+i+')" style="opacity:.6">✕</span></button>';
   }).join('')+'</div>':'')+
@@ -772,9 +805,10 @@ function saveSearch(){const u=S.users[S.me];u.saved=u.saved||[];const s={q:S._q|
 function runSaved(i){const s=S.users[S.me].saved[i];S._q=s.q;S._cat=s.cat;render();}
 function rmSaved(i){S.users[S.me].saved.splice(i,1);save();render();toast('Saved search removed.');}
 function cardHTML(l){
-  const u=S.users[l.seller];
-  return '<button class="lcard" onclick="go(\'listing\',\''+l.id+'\')"><div class="ph">'+art(l)+
-  (l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':'')+'</div>'+
+  const u=S.users[l.seller]||{nick:'?',verified:false};
+  return '<button class="lcard" style="'+(l.sold?'opacity:.55':'')+'" onclick="go(\'listing\',\''+esc(l.id)+'\')"><div class="ph">'+art(l)+
+  (l.sold?'<span class="badge" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;letter-spacing:.08em">SOLD</span>'
+    :(l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':''))+'</div>'+
   '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
   '<div class="meta">'+esc(l.loc)+' · '+(u.verified?'<span style="color:var(--green)">✓</span> ':'')+nn(u)+'</div></div></button>';
 }
@@ -809,16 +843,23 @@ function buyMerch(id){
   '<p class="price" style="font-size:22px;margin:6px 0">'+fmt(m.price)+'</p>'+
   '<p style="color:#C6CDD9;font-size:13.5px;margin-bottom:10px">'+esc(m.desc||'')+'</p>'+
   '<div class="field"><label>Size</label><select id="msize">'+(m.sizes||['One size']).map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></div>'+
-  '<button class="btn amber" onclick="placeOrder(\''+id+'\')">Place order</button>'+
-  '<p class="hint" style="margin-top:8px">Card checkout (Stripe) turns on soon. For now your order is reserved and the founder confirms it.</p>'+
+  '<button class="btn amber" onclick="placeOrder(\''+id+'\')">'+(stripeLinkFor(m)?'Pay with card 💳':'Place order')+'</button>'+
+  '<p class="hint" style="margin-top:8px">'+(stripeLinkFor(m)?'Secure card checkout by Stripe. Pick your size, then complete payment on the next screen.':'Card checkout (Stripe) turns on soon. For now your order is reserved and the founder confirms it.')+'</p>'+
   '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
   document.body.appendChild(ov);
 }
 function placeOrder(id){
   const m=(S.merch||[]).find(x=>x.id===id);if(!m)return;
-  const o={id:'o'+Date.now(),buyer:S.me,item:id,itemName:m.name,size:$('#msize').value,price:m.price,status:'placed',t:Date.now()};
+  const size=$('#msize').value;
+  const o={id:'o'+Date.now(),buyer:S.me,item:id,itemName:m.name,size,price:m.price,
+    status:stripeLinkFor(m)?'paid-pending-confirm':'placed',t:Date.now()};
   S.orders.unshift(o);save();if(CLOUD)cloudPut('order',o.id,o);
-  document.querySelector('.overlay').remove();render();toast('Order placed — '+m.name+'. The founder will confirm 🏁');
+  document.querySelector('.overlay').remove();render();
+  const link=stripeLinkFor(m);
+  if(link){toast('Opening secure checkout…');
+    const url=link+(link.includes('?')?'&':'?')+'client_reference_id='+encodeURIComponent(o.id);
+    window.open(url,'_blank','noopener');}
+  else toast('Order placed — '+m.name+'. The founder will confirm 🏁');
 }
 function addMerchModal(){
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
@@ -844,15 +885,19 @@ function saveMerch(){
 /* =================== LISTING DETAIL =================== */
 function vListing(id){
   const l=S.listings.find(x=>x.id===id);if(!l)return '<div class="empty">Listing not found.</div>';
-  const u=S.users[l.seller],mine=l.seller===S.me;
+  const u=S.users[l.seller]||{nick:'?',first:'',last:'',verified:false,rating:0,sales:0},mine=l.seller===S.me;
+  bumpView(l);
   const shots=SHOTS.map((s,i)=>'<div class="lcard" style="flex:0 0 150px"><div class="ph">'+art(l,s)+'</div></div>').join('');
   return '<button class="back" onclick="setTab(\'market\')">&#8592; Market</button>'+
+  (isFlagged(l.id)?'<div class="warn"><b>⚫ Black-flagged.</b> This listing was hidden by the PitLane crew after a report.'+(mine?' Contact the crew if you think this is a mistake.':'')+'</div>':'')+
   '<div class="card" style="overflow:hidden;margin-bottom:14px"><div style="aspect-ratio:16/10;position:relative">'+art(l)+
-  (l.boosted?'<span class="badge f" style="position:absolute;top:10px;right:10px">★ BOOSTED</span>':'')+'</div></div>'+
+  (l.sold?'<span class="badge" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.7);color:#fff;letter-spacing:.08em">SOLD</span>'
+    :(l.boosted?'<span class="badge f" style="position:absolute;top:10px;right:10px">★ BOOSTED</span>':''))+'</div></div>'+
   '<div style="display:flex;align-items:flex-start;gap:10px"><div style="flex:1">'+
   '<div class="price" style="font-size:24px">'+fmt(l.price)+'</div>'+
   '<h1 style="font-size:18px;font-weight:700;margin-top:2px">'+esc(l.title)+'</h1>'+
   '<p class="hint">'+esc(l.loc)+' · listed '+esc(l.posted)+' · <span class="badge cat">'+esc(CATS.find(c=>c[0]===l.cat)[1])+'</span></p></div></div>'+
+  (mine?'<div class="hint" style="margin-top:6px">👁 <b>'+(l.views||0)+'</b> '+((l.views||0)===1?'view':'views')+' · '+(l.boosted?'boosted — top of the grid':'not boosted')+'</div>':'')+
   '<div class="shead"><h2>Required shots</h2><span class="badge v">✓ 6 / 6 VERIFIED SET</span></div>'+
   '<div class="featrow">'+shots+'</div>'+
   '<p class="hint">Every PitLane listing requires these six real photos — no stock images allowed.</p>'+
@@ -880,13 +925,22 @@ function vListing(id){
   (mine?'<button class="btn '+(l.sold?'ghost':'line')+'" style="margin-top:10px" onclick="markSold(\''+l.id+'\')">'+(l.sold?'✓ Marked SOLD — tap to relist':'Mark as sold')+'</button>':'')+
   '<button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
 }
+let _viewed={};
+function bumpView(l){
+  if(l.seller===S.me)return;                 // don't count the owner's own opens
+  if(_viewed[l.id])return;_viewed[l.id]=1;   // once per session
+  l.views=(l.views||0)+1;save();
+  if(CLOUD)cloudBumpView(l.id);
+}
 function markSold(lid){const l=S.listings.find(x=>x.id===lid);l.sold=!l.sold;
   if(l.sold){const s=S.users[l.seller];s.sales=(s.sales||0)+1;}else{const s=S.users[l.seller];s.sales=Math.max(0,(s.sales||0)-1);}
-  save();render();toast(l.sold?'Marked SOLD 🏁 — buyers can now review you.':'Relisted.');}
+  save();if(CLOUD)cloudUpdateListing(l);
+  render();toast(l.sold?'Marked SOLD 🏁 — buyers can now review you.':'Relisted.');}
 function msgSeller(lid){
   const l=S.listings.find(x=>x.id===lid);
   let t=S.threads.find(t=>t.listing===lid&&t.users.includes(S.me));
-  if(!t){t={id:'t'+Date.now(),listing:lid,users:[S.me,l.seller],msgs:[]};S.threads.unshift(t);save();}
+  // deterministic id so both sides land in the same thread across devices
+  if(!t){t={id:'t_'+lid+'_'+S.me,listing:lid,users:[S.me,l.seller],msgs:[]};S.threads.unshift(t);save();}
   go('convo',t.id);
 }
 
@@ -897,20 +951,45 @@ function boostModal(lid){
   '<h2 class="disp" style="font-size:22px">Pole position</h2>'+
   '<p style="color:var(--mut);font-size:14px;margin:8px 0 14px">Boosted listings ride at the top of the market and in the Featured row for 7 days. Faster eyes, faster sale.</p>'+
   '<div class="launchnote"><b>Launch season:</b> boosts are <b>FREE</b> right now. Regular price <s class="mono">$15</s> kicks in after launch.</div>'+
-  '<button class="btn amber" id="doboost">★ Boost for free</button>'+
+  '<button class="btn amber" id="doboost">'+(STRIPE.boost?'★ Boost — $15 💳':'★ Boost for free')+'</button>'+
   '<button class="btn line" style="margin-top:10px" onclick="this.closest(\'.overlay\').remove()">Not now</button></div>';
   document.body.appendChild(ov);
-  $('#doboost').onclick=()=>{const l=S.listings.find(x=>x.id===lid);l.boosted=true;save();ov.remove();render();
-    toast('Boosted — you\'re on pole. 🏁');award('boost')};
+  $('#doboost').onclick=()=>{
+    if(STRIPE.boost){const url=STRIPE.boost+(STRIPE.boost.includes('?')?'&':'?')+'client_reference_id='+encodeURIComponent(lid);
+      toast('Opening secure checkout…');window.open(url,'_blank','noopener');ov.remove();return;}
+    const l=S.listings.find(x=>x.id===lid);l.boosted=true;save();
+    if(CLOUD)cloudUpdateListing(l);
+    ov.remove();render();toast('Boosted — you\'re on pole. 🏁');award('boost')};
 }
 function reportModal(lid){
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
   ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Black-flag this listing</h2>'+
   '<p style="color:var(--mut);font-size:13.5px;margin:8px 0 14px">Reports go straight to the PitLane crew. Sellers who fake photos or title status get removed.</p>'+
   ['Stock or stolen photos','Wrong title status / VIN','Scam or off-platform payment push','Stolen vehicle or parts','Other']
-    .map(r=>'<button class="btn ghost" style="margin-bottom:8px" onclick="this.closest(\'.overlay\').remove();toast(\'Report sent. The crew is on it.\')">'+r+'</button>').join('')+
+    .map((r,i)=>'<button class="btn ghost" style="margin-bottom:8px" onclick="sendReport(\''+lid+'\','+i+');this.closest(\'.overlay\').remove()">'+r+'</button>').join('')+
   '<button class="btn line" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
   document.body.appendChild(ov);
+}
+const REPORT_REASONS=['Stock or stolen photos','Wrong title status / VIN','Scam or off-platform payment push','Stolen vehicle or parts','Other'];
+function sendReport(lid,ri){
+  const l=S.listings.find(x=>x.id===lid);
+  const r={id:'rp'+Date.now(),listing:lid,listingTitle:l?l.title:'?',reason:REPORT_REASONS[ri]||'Other',
+    from:S.me,fromNick:(S.users[S.me]||{}).nick||'',t:Date.now()};
+  S.reports=S.reports||[];S.reports.unshift(r);save();
+  if(CLOUD)cloudPut('report',r.id,r);
+  toast('Report sent. The crew is on it.');
+}
+function isFlagged(lid){return !!(S.flags&&S.flags[lid])}
+function flagListing(lid,on){
+  S.flags=S.flags||{};
+  if(on){S.flags[lid]={by:S.me,t:Date.now()};if(CLOUD)cloudPut('flag',lid,{id:lid,listing:lid,by:S.me,t:Date.now()});}
+  else{delete S.flags[lid];if(CLOUD)cloudDel('flag',lid);}
+  save();render();toast(on?'⚫ Listing black-flagged — hidden from the market.':'Flag lifted — listing is back.');
+}
+function dismissReport(rid){
+  S.reports=(S.reports||[]).filter(r=>r.id!==rid);save();
+  if(CLOUD)cloudDel('report',rid);
+  render();toast('Report dismissed.');
 }
 
 /* =================== SELL WIZARD =================== */
@@ -992,11 +1071,9 @@ function wNext2(){
   if(!d.titleStatus)d.titleStatus='clean';
   W.step=3;render();
 }
-function slotFile(inp,i){
+async function slotFile(inp,i){
   const f=inp.files[0];if(!f)return;
-  const rd=new FileReader();
-  rd.onload=()=>{W.photos[i]=rd.result;render()};
-  rd.readAsDataURL(f);
+  W.photos[i]=await shrink(f);render();
 }
 async function publish(){
   if(!$('#w_legal').checked)return toast('You must confirm ownership and accuracy first.');
@@ -1045,8 +1122,17 @@ function vEvents(){
 function rsvp(id){
   const ev=S.events.find(e=>e.id===id);
   const i=ev.going.indexOf(S.me);
-  if(i>=0){ev.going.splice(i,1);toast('RSVP pulled.')}else{ev.going.push(S.me);toast('Locked in. See you there 🏁');award('rsvp')}
+  if(i>=0){ev.going.splice(i,1);toast('RSVP pulled.');if(CLOUD)cloudDel('rsvp',id+':'+S.me);}
+  else{ev.going.push(S.me);toast('Locked in. See you there 🏁');award('rsvp');
+    if(CLOUD)cloudPut('rsvp',id+':'+S.me,{id:id+':'+S.me,event:id,user:S.me,nick:(S.users[S.me]||{}).nick||''});}
   save();render();
+}
+function applyRsvp(d,remove){
+  if(!d||!okId(d.event||'')||!okId(d.user||''))return;   // id-independent: event+user is all we need
+  const ev=S.events.find(e=>e.id===d.event);if(!ev)return;
+  const i=ev.going.indexOf(d.user);
+  if(remove){if(i>=0)ev.going.splice(i,1);}
+  else if(i<0)ev.going.push(d.user);
 }
 function vEventNew(){
   return '<button class="back" onclick="setTab(\'events\')">&#8592; Events</button>'+
@@ -1114,12 +1200,24 @@ function sendMsg(tid){
   const t=S.threads.find(x=>x.id===tid);
   const now=new Date(),hh=((now.getHours()+11)%12+1),mm=String(now.getMinutes()).padStart(2,'0'),
         ap=now.getHours()>=12?'PM':'AM';
-  t.msgs.push({from:S.me,text:txt,t:hh+':'+mm+' '+ap});
+  const msg={id:'dm'+Date.now()+Math.random().toString(36).slice(2,5),from:S.me,text:txt,t:hh+':'+mm+' '+ap,ts:Date.now()};
+  t.msgs.push(msg);
   save();award('first_msg');render();
+  if(CLOUD){cloudPut('dm',msg.id,Object.assign({thread:t.id,listing:t.listing,users:t.users},msg));return;}
+  // demo-only canned reply — never fires against real accounts
   const other=t.users.find(u=>u!==S.me);
   if(other&&S.users[other]&&!t._replied){t._replied=true;
     setTimeout(()=>{t.msgs.push({from:other,text:'Got it — let me get back to you in a bit. 👍',t:hh+':'+mm+' '+ap});
       save();if(view.name==='convo'&&view.arg===tid)render();},1400);}
+}
+function applyDM(d){ // fold a cloud DM row into local threads (only threads I'm part of)
+  d=cleanRec(d);if(!d||!Array.isArray(d.users)||!d.users.includes(S.me)||!okId(d.thread||''))return false;
+  let t=S.threads.find(x=>x.id===d.thread);
+  if(!t){t={id:d.thread,listing:d.listing,users:d.users,msgs:[]};S.threads.unshift(t);}
+  if(t.msgs.some(m=>m.id===d.id))return false;
+  t.msgs.push({id:d.id,from:d.from,text:d.text,t:d.t,ts:d.ts});
+  t.msgs.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  return true;
 }
 
 /* =================== PROFILE =================== */
@@ -1555,7 +1653,7 @@ function pBuild(){
   '<button class="btn amber" onclick="saveBuild()">Save build</button>';
 }
 function cbSet(k,v){CB[k]=v; if(k==='brand'){const b=brandOf(v);CB.model=b.models[0];} render();}
-function cbAddPhoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{CB.photos=CB.photos||[];CB.photos.push(r.result);render()};r.readAsDataURL(f)}
+async function cbAddPhoto(inp){const f=inp.files[0];if(!f)return;const p=await shrink(f);CB.photos=CB.photos||[];CB.photos.push(p);render()}
 function cbRmPhoto(i){CB.photos.splice(i,1);render()}
 async function saveBuild(){
   const u=S.users[S.me];u.garage=u.garage||[];
@@ -1611,8 +1709,8 @@ function pEdit(){
 }
 function equipTitle(t){S.users[S.me].eqTitle=t;save();render()}
 function equipEmblem(n,c){S.users[S.me].eqEmblem=[n,c];save();render()}
-function addPhoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{const u=S.users[S.me];u.carPhotos=u.carPhotos||[];u.carPhotos.push(r.result);save();render()};r.readAsDataURL(f)}
+async function addPhoto(inp){const f=inp.files[0];if(!f)return;const p=await shrink(f);
+  const u=S.users[S.me];u.carPhotos=u.carPhotos||[];u.carPhotos.push(p);save();render()}
 function rmPhoto(i){const u=S.users[S.me];u.carPhotos.splice(i,1);save();render()}
 function saveEdit(){S.users[S.me].bio=$('#pbio').value;save();setPTab('home');toast('Profile saved.')}
 
@@ -1878,17 +1976,17 @@ function cultureRunHTML(u){
   }).join('')+
   '<p class="hint">Real GPS check-in (must actually be there) comes with the phase-2 backend + Google Maps. For now it\'s photo-honor-system.</p>';
 }
-function spotUpload(inp,sid){
+async function spotUpload(inp,sid){
   const f=inp.files[0];if(!f)return;const u=S.users[S.me];
-  const r=new FileReader();r.onload=()=>{u.spotShots=u.spotShots||{};const first=!u.spotShots[sid];
-    u.spotShots[sid]=r.result;
-    const sp=SPOTS.find(s=>s.id===sid);const xp=isSeasonSpot(sid)?sp.xp*2:sp.xp;
-    if(first&&!u.master)u.xp=(u.xp||0)+xp;
-    const seasonDone=SEASON.spots.every(x=>u.spotShots[x]);
-    if(first&&seasonDone&&!u.unlockedEmblems.some(e=>e[0]===SEASON.emblem[0]))u.unlockedEmblems.push(SEASON.emblem);
-    save();render();
-    toast(first?('📍 '+sp.name+' — +'+(u.master?0:xp)+' XP'+(seasonDone?'. Season '+SEASON.n+' emblem + card unlocked! 🔥':'. Culture grows.')):'Photo updated.');
-  };r.readAsDataURL(f);
+  const p=await shrink(f);
+  u.spotShots=u.spotShots||{};const first=!u.spotShots[sid];
+  u.spotShots[sid]=p;
+  const sp=SPOTS.find(s=>s.id===sid);const xp=isSeasonSpot(sid)?sp.xp*2:sp.xp;
+  if(first&&!u.master)u.xp=(u.xp||0)+xp;
+  const seasonDone=SEASON.spots.every(x=>u.spotShots[x]);
+  if(first&&seasonDone&&!u.unlockedEmblems.some(e=>e[0]===SEASON.emblem[0]))u.unlockedEmblems.push(SEASON.emblem);
+  save();render();
+  toast(first?('📍 '+sp.name+' — +'+(u.master?0:xp)+' XP'+(seasonDone?'. Season '+SEASON.n+' emblem + card unlocked! 🔥':'. Culture grows.')):'Photo updated.');
 }
 function drawMap(){
   const cv=$('#mapcv');if(!cv)return;const w=cv.width=cv.clientWidth*2,h=cv.height=cv.clientHeight*2,x=cv.getContext('2d');
@@ -1989,6 +2087,7 @@ function pAdmin(){
   return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Master control</h1>'+
   '<p class="hint" style="margin-bottom:12px">Level anyone up or down, hand out prestige, and run the scene. Race results get confirmed by you at each event under <b>Races → Inspection + log a result</b>.</p>'+
   '<div class="launchnote">🏁 <b>Where results come from:</b> open <b>Races</b>, pick an event, and use <b>Inspection + log a result</b> to confirm who took the W. That\'s the only path to race XP — keeps randoms from ranking themselves up.</div>'+
+  moderationHTML()+
   '<div class="shead"><h2>Open challenges</h2><span class="badge f">'+pend.length+'</span></div>'+
   (pend.length?pend.map(c=>{const a=S.users[c.from]||{nick:'?'},b=S.users[c.to]||{nick:'?'};
     return '<div class="card queueitem"><b>'+nn(a)+'</b> vs <b>'+nn(b)+'</b><div class="hint">'+esc(c.venue)+' · '+esc(c.status)+'</div></div>';
@@ -2006,6 +2105,34 @@ function pAdmin(){
   '<div class="shead"><h2>Club password</h2></div>'+
   '<div class="card" style="padding:14px"><p class="hint" style="margin-bottom:8px">Members need this to enter the paddock. Current: <b class="mono">'+esc(S.clubPass)+'</b></p>'+
   '<div style="display:flex;gap:8px"><input id="newpass" placeholder="New club password"><button class="btn sm amber" onclick="setPass()">Set</button></div></div>';
+}
+function moderationHTML(){
+  const reps=S.reports||[];
+  // group reports by listing
+  const byL={};reps.forEach(r=>{(byL[r.listing]=byL[r.listing]||[]).push(r)});
+  const lids=Object.keys(byL);
+  return '<div class="shead"><h2><s>Reports</s> — Moderation</h2><span class="badge f">'+reps.length+'</span></div>'+
+  (lids.length?lids.map(lid=>{
+    const l=S.listings.find(x=>x.id===lid),rs=byL[lid],flagged=isFlagged(lid);
+    return '<div class="card queueitem" style="border-color:'+(flagged?'rgba(232,54,45,.5)':'rgba(242,179,61,.4)')+'">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'+
+      '<div style="flex:1;min-width:0"><b>'+esc(l?l.title:(rs[0].listingTitle||'(removed listing)'))+'</b>'+
+      (flagged?' <span class="badge" style="background:rgba(232,54,45,.16);color:var(--red-hot)">⚫ FLAGGED</span>':'')+
+      '<div class="hint">'+rs.length+' report'+(rs.length>1?'s':'')+' · '+esc([...new Set(rs.map(r=>r.reason))].join(', '))+'</div>'+
+      '<div class="hint" style="margin-top:3px">by '+esc([...new Set(rs.map(r=>r.fromNick||'?'))].join(', '))+'</div></div></div>'+
+      '<div class="qbtns">'+
+      (l?(flagged?'<button class="btn sm ghost" onclick="flagListing(\''+lid+'\',false)">Un-flag</button>'
+        :'<button class="btn sm" onclick="flagListing(\''+lid+'\',true)">⚫ Black-flag</button>'):'')+
+      (l?'<button class="btn sm line" onclick="go(\'listing\',\''+esc(lid)+'\')">View</button>':'')+
+      '<button class="btn sm line" onclick="clearReports(\''+lid+'\')">Dismiss</button></div>'+
+    '</div>';
+  }).join(''):'<div class="card empty">No reports. Clean grid. 🏁</div>');
+}
+function clearReports(lid){
+  const rs=(S.reports||[]).filter(r=>r.listing===lid);
+  S.reports=(S.reports||[]).filter(r=>r.listing!==lid);save();
+  if(CLOUD)rs.forEach(r=>cloudDel('report',r.id));
+  render();toast('Reports cleared for that listing.');
 }
 function adminLevel(uid,dir){const u=S.users[uid];const cur=lvlOf(u.xp||0).l;
   const target=Math.min(MAXLVL,Math.max(1,cur+dir));
@@ -2073,17 +2200,36 @@ function pShop(){
   '<ul style="padding-left:18px;margin-top:8px;color:#EEF1F6;font-size:13.5px;display:grid;gap:4px">'+
   '<li>Unlimited vehicles in your garage</li><li>Premium calling cards + animated emblems</li><li>Every name color unlocked now</li><li>Double Culture Run XP</li><li>Priority verified badge + Pro flair</li></ul>'+
   (pro?'<div class="launchnote" style="margin-top:12px">You\'re Pro. Flex earned. 🏁</div>'
-    :'<button class="btn amber" style="margin-top:12px" onclick="getPass()">Get Pit Pass — FREE for founding members</button>'+
-     '<p class="hint" style="margin-top:6px">Free during launch. Real billing (Stripe) turns on later — founding members keep it.</p>')+'</div>'+
+    :'<button class="btn amber" style="margin-top:12px" onclick="getPass()">'+(STRIPE.pitpass?'Get Pit Pass — '+PITPASS+' 💳':'Get Pit Pass — FREE for founding members')+'</button>'+
+     '<p class="hint" style="margin-top:6px">'+(STRIPE.pitpass?'Secure card billing by Stripe.':'Free during launch. Real billing (Stripe) turns on later — founding members keep it.')+'</p>')+'</div>'+
   '<div class="shead"><h2>Cosmetic shop</h2></div><div class="cardgrid">'+
   PRO_CARDS.map(c=>'<button class="ccard '+(u.eqCard===c.id?'on':'')+'" onclick="'+(pro?'equipCard(\''+c.id+'\')':'setPTab(\'shop\');toast(\'Pit Pass Pro unlocks this ✦\')')+'"><span class="ccprev" style="background:'+c.css+'"></span><span class="ename">'+(pro?'':'🔒 ')+esc(c.name)+'</span></button>').join('')+'</div>'+
   '<p class="hint" style="margin-top:8px">'+(pro?'Equip any — they\'re yours.':'Unlock the shop with Pit Pass Pro.')+'</p>';
 }
-function getPass(){const u=S.users[S.me];u.pro=true;save();render();toast('Pit Pass unlocked — founding member. Flex on 🏁');}
+function getPass(){
+  if(STRIPE.pitpass){const url=STRIPE.pitpass+(STRIPE.pitpass.includes('?')?'&':'?')+'client_reference_id='+encodeURIComponent(S.me||'');
+    toast('Opening secure checkout…');window.open(url,'_blank','noopener');return;}
+  const u=S.users[S.me];u.pro=true;save();render();toast('Pit Pass unlocked — founding member. Flex on 🏁');}
 /* =================== NOTIFICATIONS =================== */
 function notify(text){S.notifs=S.notifs||[];S.notifs.unshift({text,t:Date.now(),read:false});
   if(S.notifs.length>40)S.notifs=S.notifs.slice(0,40);save();
   const b=document.getElementById('notifdot');if(b)b.style.display='block';}
+/* OS-level notification when the app is backgrounded (real Web Push needs a server; this covers the common case) */
+function pushLocal(title,body){
+  try{if(!('Notification'in window)||Notification.permission!=='granted')return;
+    if(document.visibilityState==='visible')return;   // already looking — the toast is enough
+    const n=new Notification(title,{body,icon:'icon-192.png',badge:'icon-192.png',tag:'pitlane'});
+    n.onclick=()=>{window.focus();n.close();};
+  }catch(e){}
+}
+function askPush(){
+  try{if(!('Notification'in window))return;
+    if(Notification.permission==='default'&&!localStorage.getItem('pl_push_asked')){
+      localStorage.setItem('pl_push_asked','1');
+      Notification.requestPermission().then(p=>{if(p==='granted')toast('🔔 Notifications on — you\'ll know when someone messages or challenges you.');});
+    }
+  }catch(e){}
+}
 function pNotifs(){
   const ns=S.notifs||[];(ns).forEach(n=>n.read=true);save();
   return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
@@ -2152,6 +2298,13 @@ async function cloudLoadShared(){
       ad.filter(r=>r.kind==='review').forEach(r=>applyReview(r.data));
       S.merch=ad.filter(r=>r.kind==='merch').map(r=>r.data).filter(Boolean);
       S.orders=ad.filter(r=>r.kind==='order').map(r=>r.data).filter(Boolean);
+      // direct messages — rebuild threads I'm part of
+      S.threads=[];ad.filter(r=>r.kind==='dm').forEach(r=>applyDM(r.data));
+      // reports + flags (moderation) — reports only matter to the Master, flags to everyone
+      S.reports=ad.filter(r=>r.kind==='report').map(r=>r.data).filter(Boolean).sort((a,b)=>(b.t||0)-(a.t||0));
+      S.flags={};ad.filter(r=>r.kind==='flag').forEach(r=>{const d=r.data;if(d&&d.listing)S.flags[d.listing]={by:d.by,t:d.t};});
+      // RSVPs live in app_data (RLS blocks non-hosts from writing the event row)
+      ad.filter(r=>r.kind==='rsvp').forEach(r=>applyRsvp(r.data,false));
     }
     save();
   }catch(e){console.warn('shared load',e)}
@@ -2161,15 +2314,29 @@ async function cloudDel(kind,id){if(!CLOUD)return;try{await sb.from('app_data').
 function cloudRealtime(){
   if(!CLOUD||!sb)return;
   try{sb.channel('pl').on('postgres_changes',{event:'*',schema:'public',table:'app_data'},p=>{
+    if(p.eventType==='DELETE'){const oid=(p.old&&p.old.id)||'';const ci=oid.indexOf(':');
+      if(ci<0)return;const kind=oid.slice(0,ci),rid=oid.slice(ci+1);
+      if(kind==='flag'){if(S.flags&&S.flags[rid]){delete S.flags[rid];if(view.name==='listing'||(world==='market'&&tab==='market'))render();}}
+      else if(kind==='rsvp'){const[eid,uid]=rid.split(':');applyRsvp({event:eid,user:uid},true);if(world==='market'&&tab==='events')render();}
+      else if(kind==='report'){S.reports=(S.reports||[]).filter(x=>x.id!==rid);if(world==='prestige'&&ptab==='admin')render();}
+      else if(kind==='challenge'){S.challenges=S.challenges.filter(x=>x.id!==rid);if(world==='prestige'&&ptab==='ranks')render();}
+      return;}
     const r=p.new;if(!r||!r.data)return;const d=r.data;
     if(r.kind==='chat'){if(!S.paddockChat.some(m=>m.id===d.id)){S.paddockChat.push(d);if(world==='prestige'&&ptab==='chat')render();}}
     else if(r.kind==='announce'){if(!S.announcements.some(a=>a.id===d.id)){S.announcements.unshift(d);notify('📣 New event: '+(d.title||''));if(world==='prestige'&&ptab==='chat')render();else renderNotifDot();}}
-    else if(r.kind==='challenge'){const i=S.challenges.findIndex(x=>x.id===d.id);if(i<0){S.challenges.push(d);if(d.to===S.me){notify('🏁 '+((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');renderNotifDot();}}else S.challenges[i]=d;if(world==='prestige'&&ptab==='ranks')render();}
+    else if(r.kind==='challenge'){const i=S.challenges.findIndex(x=>x.id===d.id);if(i<0){S.challenges.push(d);if(d.to===S.me){notify('🏁 '+((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');renderNotifDot();pushLocal('New challenge 🏁',((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');}}else S.challenges[i]=d;if(world==='prestige'&&ptab==='ranks')render();}
     else if(r.kind==='clan'){const i=S.clans.findIndex(x=>x.id===d.id);if(i<0)S.clans.push(d);else S.clans[i]=d;if(world==='prestige'&&ptab==='clans')render();}
     else if(r.kind==='loc'){if(d.id&&S.users[d.id]){S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);if(world==='prestige'&&ptab==='map')render();}}
-    else if(r.kind==='review'){applyReview(d);if(d.to===S.me&&d.from!==S.me){notify('★ '+(d.fromNick||'Someone')+' left you a '+d.stars+'-star review');renderNotifDot();}if(view.name==='user'||view.name==='profile')render();}
+    else if(r.kind==='review'){applyReview(d);if(d.to===S.me&&d.from!==S.me){notify('★ '+(d.fromNick||'Someone')+' left you a '+d.stars+'-star review');renderNotifDot();pushLocal('New review ★',(d.fromNick||'Someone')+' left you a '+d.stars+'-star review');}if(view.name==='user'||view.name==='profile')render();}
     else if(r.kind==='merch'){if(!S.merch.some(x=>x.id===d.id)){S.merch.unshift(d);if(view.name==='merch')render();}}
     else if(r.kind==='order'){if(!S.orders.some(x=>x.id===d.id)){S.orders.unshift(d);if(S.me&&S.users[S.me]&&S.users[S.me].master){notify('🛒 New merch order: '+(d.itemName||''));renderNotifDot();}if(view.name==='merch')render();}}
+    else if(r.kind==='dm'){if(applyDM(d)){if(d.from!==S.me){const t=S.threads.find(x=>x.id===d.thread);notify('💬 '+((S.users[d.from]||{}).nick||'Someone')+': '+(d.text||'').slice(0,40));renderNotifDot();pushLocal('New message',((S.users[d.from]||{}).nick||'Someone')+': '+(d.text||'').slice(0,60));}
+      if(view.name==='convo'&&view.arg===d.thread)render();else if(tab==='chat'&&view.name==='tab')render();}}
+    else if(r.kind==='report'){if(!(S.reports||[]).some(x=>x.id===d.id)){S.reports=S.reports||[];S.reports.unshift(d);
+      if(S.me&&S.users[S.me]&&S.users[S.me].master){notify('🚩 Listing reported: '+(d.listingTitle||''));renderNotifDot();}
+      if(view.name==='prestige'&&ptab==='admin')render();}}
+    else if(r.kind==='flag'){if(d&&d.listing){S.flags=S.flags||{};S.flags[d.listing]={by:d.by,t:d.t};if(view.name==='listing'||(world==='market'&&tab==='market'))render();}}
+    else if(r.kind==='rsvp'){applyRsvp(d,false);if(world==='market'&&tab==='events')render();}
   }).subscribe();
   sb.channel('pl2').on('postgres_changes',{event:'INSERT',schema:'public',table:'listings'},p=>{
     const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);if(world==='market'&&tab==='market'&&view.name==='tab')render();}
@@ -2180,9 +2347,27 @@ function renderNotifDot(){const b=document.getElementById('notifdot');if(b)b.sty
 function cloudSaveMe(){
   if(!CLOUD||!S.me)return;clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{const u=S.users[S.me];if(!u)return;
-    try{await sb.from('profiles').update({nick:u.nick,prestige:u.prestige||0,xp:u.xp||0,master:!!u.master,
-      founder:!!u.founder,eq_name:u.eqName||null,bio:u.bio||'',data:u}).eq('id',S.me);}catch(e){}
+    // never publish email into the public-read profile blob
+    const blob=Object.assign({},u);delete blob.email;
+    // master/founder are set by the server trigger, not trusted from the client
+    try{const {error}=await sb.from('profiles').update({nick:u.nick,prestige:u.prestige||0,xp:u.xp||0,
+      eq_name:u.eqName||null,bio:u.bio||'',data:blob}).eq('id',S.me);
+      if(error)syncWarn();}catch(e){syncWarn();}
   },800);
+}
+async function cloudUpdateListing(l){
+  if(!CLOUD)return;
+  const blob=Object.assign({},l);
+  try{const {error}=await sb.from('listings').update({price:l.price,title:l.title,data:blob})
+    .eq('seller',S.me).eq('data->>id',l.id);if(error)syncWarn();}catch(e){syncWarn();}
+}
+async function cloudBumpView(lid){
+  if(!CLOUD)return;
+  // atomic increment via RPC if present; otherwise best-effort read+write
+  try{const {error}=await sb.rpc('bump_view',{lid});if(!error)return;}catch(e){}
+  try{const {data}=await sb.from('listings').select('data').eq('data->>id',lid).maybeSingle();
+    if(data&&data.data){data.data.views=(data.data.views||0)+1;
+      await sb.from('listings').update({data:data.data}).eq('data->>id',lid);}}catch(e){}
 }
 async function cloudPublishListing(l){
   if(!CLOUD)return;
@@ -2209,7 +2394,7 @@ async function cloudBoot(){
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){view={name:'auth-reset'};render();}});
   try{const {data}=await sb.auth.getSession();
     if(data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
-      tab='market';view={name:'tab'};openDeep&&openDeep();}
+      tab='market';view={name:'tab'};openDeep&&openDeep();askPush();}
     else{view={name:'auth-welcome'};}
   }catch(e){console.warn('cloudBoot',e)}
   render();
@@ -2223,9 +2408,18 @@ function openDeep(){if(!deepU)return false;const du=Object.values(S.users).find(
 if(window.supabase&&window.supabase.createClient){
   // CLOUD MODE — real accounts + shared data
   cloudReady();
-  S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],merch:[],orders:[],notifs:[],clubPass:'redline',pno:1};
-  view={name:'auth-welcome'};render();
+  // hydrate from the last-synced local cache so an offline/slow launch shows real data (not a blank grid)
+  const cached=(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){return null}})();
+  if(cached&&cached.me&&cached.users&&cached.users[cached.me]){
+    S=cached;S.threads=S.threads||[];S.merch=S.merch||[];S.orders=S.orders||[];S.reports=S.reports||[];S.flags=S.flags||{};
+    tab='market';view={name:'tab'};openDeep();render();
+  }else{
+    S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],merch:[],orders:[],notifs:[],reports:[],flags:{},clubPass:'redline',pno:1};
+    view={name:'auth-welcome'};render();
+  }
   cloudBoot();
+  // reconcile when connectivity returns
+  window.addEventListener('online',()=>{if(CLOUD&&S.me){cloudLoadShared().then(()=>render());toast('Back online — syncing 🏁')}});
 }else{
   // LOCAL DEMO MODE (offline / artifact preview)
   load();
