@@ -507,6 +507,12 @@ function seed(){return{
     {from:'dan',text:'Challenged Trippzy already lol',t:'1:44 PM'}
   ],
   clubPass:'redline',pno:5,
+  merch:[
+    {id:'m1',name:'PitLane Racing Tee',price:32,desc:'Heavyweight cotton tee, checkered-flag PitLane logo across the chest.',sizes:['S','M','L','XL','2XL'],hue:0,emoji:'👕'},
+    {id:'m2',name:'Redline Snapback',price:28,desc:'Structured 6-panel, embroidered PitLane wordmark, red underbill.',sizes:['One size'],hue:355,emoji:'🧢'},
+    {id:'m3',name:'Paddock Hoodie',price:58,desc:'Heavyweight fleece hoodie, "Buy it. Build it. Race it." on the back.',sizes:['S','M','L','XL','2XL'],hue:220,emoji:'🧥'}
+  ],
+  orders:[],notifs:[],
   threads:[
     {id:'t1',listing:'l1',users:['trippzy','marv'],msgs:[
       {from:'trippzy',text:'Is the compression test recent? And any smoke on cold start?',t:'2:14 PM'},
@@ -525,6 +531,7 @@ function save(){localStorage.setItem(KEY,JSON.stringify(S));if(typeof cloudSaveM
 function load(){try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch(e){} if(!S)S=seed();
   S.clans=S.clans||[];S.queue=S.queue||[];S.clubPass=S.clubPass||CLUB_DEFAULT;S.pno=S.pno||1;
   S.challenges=S.challenges||[];S.paddockChat=S.paddockChat||[];S.announcements=S.announcements||[];
+  S.merch=S.merch||[];S.orders=S.orders||[];S.notifs=S.notifs||[];
   S.events.forEach(ev=>{ev.fee=ev.fee||0;ev.raceFee=ev.raceFee||0;ev.purse=ev.purse||0;ev.trophy=ev.trophy||'';
     ev.checkin=ev.checkin||[];ev.racers=ev.racers||[];ev.results=ev.results||[];ev.inspections=ev.inspections||{};});
   Object.keys(S.users).forEach(k=>{const u=S.users[k];
@@ -582,6 +589,7 @@ function render(){
   if(v==='convo')return APP.innerHTML=shell(vConvo(view.arg),false);
   if(v==='event-new')return APP.innerHTML=shell(vEventNew(),false);
   if(v==='user')return APP.innerHTML=shell(vUser(view.arg),false);
+  if(v==='merch')return APP.innerHTML=shell(vMerch(),false);
   if(v==='gate')return APP.innerHTML=vGate();
   if(v==='prestige')return APP.innerHTML=prestigeShell();
   APP.innerHTML=shell({market:vMarket,events:vEvents,chat:vChat,profile:vProfile}[tab](),true);
@@ -707,6 +715,8 @@ function vMarket(){
     return '<button class="chip" onclick="runSaved('+i+')">🔖 '+esc(s.q||CATS.find(c=>c[0]===s.cat)[1])+(cnt?' <span style="color:var(--amber)">'+cnt+'</span>':'')+' <span onclick="event.stopPropagation();rmSaved('+i+')" style="opacity:.6">✕</span></button>';
   }).join('')+'</div>':'')+
   '<div class="chips">'+CATS.map(([k,lab])=>'<button class="chip '+(cat===k?'on':'')+'" onclick="S._cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
+  '<button class="card" style="width:100%;text-align:left;padding:13px 15px;margin-bottom:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(100deg,rgba(232,54,45,.14),rgba(242,179,61,.08));border-color:rgba(242,179,61,.35)" onclick="go(\'merch\')">'+
+  '<span style="font-size:26px">🏁</span><div style="flex:1"><b>Official PitLane Merch</b><div class="hint">Tees, caps, hoodies — rep the scene</div></div><span style="color:var(--amber)">Shop ›</span></button>'+
   (feat.length?'<div class="shead"><h2><s>Featured</s> — Pole position</h2><span class="badge f">BOOSTED</span></div>'+
     '<div class="featrow">'+feat.map(cardHTML).join('')+'</div>':'')+
   '<div class="shead"><h2>The paddock</h2><span class="eyebrow">'+ls.length+' live</span></div>'+
@@ -725,6 +735,68 @@ function cardHTML(l){
   (l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':'')+'</div>'+
   '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
   '<div class="meta">'+esc(l.loc)+' · '+(u.verified?'<span style="color:var(--green)">✓</span> ':'')+nn(u)+'</div></div></button>';
+}
+
+/* =================== MERCH STORE =================== */
+function vMerch(){
+  const master=S.me&&S.users[S.me]&&S.users[S.me].master;
+  const myOrders=(S.orders||[]).filter(o=>o.buyer===S.me);
+  return '<button class="back" onclick="setTab(\'market\')">&#8592; Market</button>'+
+  '<div style="display:flex;align-items:center;gap:10px;margin:6px 0 2px"><span class="chq" style="width:40px;height:8px"></span><h1 class="disp" style="font-size:26px">Official Merch</h1></div>'+
+  '<p class="hint" style="margin-bottom:12px">Rep the scene. Official PitLane gear, straight from the founder.</p>'+
+  (master?'<button class="btn amber sm" style="margin-bottom:12px" onclick="addMerchModal()">+ Add merch</button>':'')+
+  ((S.merch&&S.merch.length)?'<div class="grid">'+S.merch.map(merchCard).join('')+'</div>'
+    :'<div class="empty">No merch dropped yet.'+(master?'<br>Add your first item.':'')+'</div>')+
+  (myOrders.length?'<div class="shead"><h2>My orders</h2></div>'+myOrders.map(o=>orderRow(o,false)).join(''):'')+
+  (master&&(S.orders||[]).length?'<div class="shead"><h2><s>Orders to fulfill</s></h2><span class="badge f">'+S.orders.length+'</span></div>'+S.orders.map(o=>orderRow(o,true)).join(''):'');
+}
+function merchCard(m){
+  return '<button class="lcard" onclick="buyMerch(\''+m.id+'\')"><div class="ph"><div class="art" style="background:linear-gradient(140deg,hsl('+(m.hue||0)+' 30% 24%),hsl('+(m.hue||0)+' 45% 10%))"><div class="stripes"></div><span style="position:relative;z-index:2;font-size:54px">'+(m.emoji||'🏁')+'</span></div></div>'+
+  '<div class="info"><div class="price">'+fmt(m.price)+'</div><h3>'+esc(m.name)+'</h3><div class="meta">Official · tap to buy</div></div></button>';
+}
+function orderRow(o,forMaster){
+  const b=S.users[o.buyer]||{nick:'?'};
+  return '<div class="card" style="padding:11px 13px;margin-bottom:8px"><b>'+esc(o.itemName)+'</b> <span class="hint">· '+esc(o.size||'')+' · '+fmt(o.price)+'</span>'+
+  (forMaster?'<div class="hint">buyer: '+nn(b)+' · '+esc(o.status||'new')+'</div>':'<div class="hint">'+esc(o.status||'placed')+'</div>')+'</div>';
+}
+function buyMerch(id){
+  const m=(S.merch||[]).find(x=>x.id===id);if(!m)return;
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><div style="font-size:56px;text-align:center">'+(m.emoji||'🏁')+'</div>'+
+  '<h2 class="disp" style="font-size:20px">'+esc(m.name)+'</h2>'+
+  '<p class="price" style="font-size:22px;margin:6px 0">'+fmt(m.price)+'</p>'+
+  '<p style="color:#C6CDD9;font-size:13.5px;margin-bottom:10px">'+esc(m.desc||'')+'</p>'+
+  '<div class="field"><label>Size</label><select id="msize">'+(m.sizes||['One size']).map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></div>'+
+  '<button class="btn amber" onclick="placeOrder(\''+id+'\')">Place order</button>'+
+  '<p class="hint" style="margin-top:8px">Card checkout (Stripe) turns on soon. For now your order is reserved and the founder confirms it.</p>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function placeOrder(id){
+  const m=(S.merch||[]).find(x=>x.id===id);if(!m)return;
+  const o={id:'o'+Date.now(),buyer:S.me,item:id,itemName:m.name,size:$('#msize').value,price:m.price,status:'placed',t:Date.now()};
+  S.orders.unshift(o);save();if(CLOUD)cloudPut('order',o.id,o);
+  document.querySelector('.overlay').remove();render();toast('Order placed — '+m.name+'. The founder will confirm 🏁');
+}
+function addMerchModal(){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Add merch</h2>'+
+  '<div class="field" style="margin-top:8px"><label>Item name</label><input id="me_n" placeholder="PitLane Racing Tee"></div>'+
+  '<div class="row2"><div class="field"><label>Price ($)</label><input id="me_p" inputmode="numeric" placeholder="32"></div>'+
+  '<div class="field"><label>Emoji</label><input id="me_e" placeholder="👕" maxlength="2"></div></div>'+
+  '<div class="field"><label>Sizes (comma separated)</label><input id="me_s" placeholder="S, M, L, XL"></div>'+
+  '<div class="field"><label>Description</label><textarea id="me_d" rows="2" placeholder="Fabric, fit, print…"></textarea></div>'+
+  '<button class="btn amber" onclick="saveMerch()">Add to store</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Cancel</button></div>';
+  document.body.appendChild(ov);
+}
+function saveMerch(){
+  const n=$('#me_n').value.trim();if(!n)return toast('Name it.');
+  const price=+($('#me_p').value||0);if(!price)return toast('Set a price.');
+  const m={id:'m'+Date.now(),name:n,price,emoji:$('#me_e').value.trim()||'🏁',hue:Math.floor(Math.random()*360),
+    sizes:($('#me_s').value.trim()||'One size').split(',').map(s=>s.trim()).filter(Boolean),desc:$('#me_d').value.trim()};
+  S.merch.unshift(m);save();if(CLOUD)cloudPut('merch',m.id,m);
+  document.querySelector('.overlay').remove();render();toast('Merch added to the store ✓');
 }
 
 /* =================== LISTING DETAIL =================== */
@@ -2007,6 +2079,8 @@ async function cloudLoadShared(){
       S.announcements=ad.filter(r=>r.kind==='announce').map(r=>r.data).filter(Boolean).reverse();
       S.challenges=ad.filter(r=>r.kind==='challenge').map(r=>r.data).filter(Boolean);
       ad.filter(r=>r.kind==='loc').forEach(r=>{const d=r.data;if(d&&d.id&&S.users[d.id])S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);});
+      S.merch=ad.filter(r=>r.kind==='merch').map(r=>r.data).filter(Boolean);
+      S.orders=ad.filter(r=>r.kind==='order').map(r=>r.data).filter(Boolean);
     }
     save();
   }catch(e){console.warn('shared load',e)}
@@ -2022,6 +2096,8 @@ function cloudRealtime(){
     else if(r.kind==='challenge'){const i=S.challenges.findIndex(x=>x.id===d.id);if(i<0){S.challenges.push(d);if(d.to===S.me){notify('🏁 '+((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');renderNotifDot();}}else S.challenges[i]=d;if(world==='prestige'&&ptab==='ranks')render();}
     else if(r.kind==='clan'){const i=S.clans.findIndex(x=>x.id===d.id);if(i<0)S.clans.push(d);else S.clans[i]=d;if(world==='prestige'&&ptab==='clans')render();}
     else if(r.kind==='loc'){if(d.id&&S.users[d.id]){S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);if(world==='prestige'&&ptab==='map')render();}}
+    else if(r.kind==='merch'){if(!S.merch.some(x=>x.id===d.id)){S.merch.unshift(d);if(view.name==='merch')render();}}
+    else if(r.kind==='order'){if(!S.orders.some(x=>x.id===d.id)){S.orders.unshift(d);if(S.me&&S.users[S.me]&&S.users[S.me].master){notify('🛒 New merch order: '+(d.itemName||''));renderNotifDot();}if(view.name==='merch')render();}}
   }).subscribe();
   sb.channel('pl2').on('postgres_changes',{event:'INSERT',schema:'public',table:'listings'},p=>{
     const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);if(world==='market'&&tab==='market'&&view.name==='tab')render();}
@@ -2074,7 +2150,7 @@ function openDeep(){if(!deepU)return false;const du=Object.values(S.users).find(
 if(window.supabase&&window.supabase.createClient){
   // CLOUD MODE — real accounts + shared data
   cloudReady();
-  S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],clubPass:'redline',pno:1};
+  S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],merch:[],orders:[],notifs:[],clubPass:'redline',pno:1};
   view={name:'auth-welcome'};render();
   cloudBoot();
 }else{
