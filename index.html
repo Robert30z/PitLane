@@ -1578,8 +1578,8 @@ function saveEventMoney(eid){
   ev.fee=+($('#ee_fee').value||0);ev.raceFee=+($('#ee_rf').value||0);ev.purse=+($('#ee_p').value||0);ev.trophy=$('#ee_t').value.trim();
   save();document.querySelector('.overlay').remove();render();toast('Event money updated.');
 }
-function acceptChallenge(id){const c=S.challenges.find(x=>x.id===id);c.status='accepted';save();render();toast('Challenge accepted — settle it at '+c.venue);}
-function declineChallenge(id){S.challenges=S.challenges.filter(x=>x.id!==id);save();render();toast('Challenge declined.');}
+function acceptChallenge(id){const c=S.challenges.find(x=>x.id===id);c.status='accepted';save();if(CLOUD)cloudPut('challenge',c.id,c);render();toast('Challenge accepted — settle it at '+c.venue);}
+function declineChallenge(id){S.challenges=S.challenges.filter(x=>x.id!==id);save();if(CLOUD)cloudDel('challenge',id);render();toast('Challenge declined.');}
 function awardUser(uid,mid){
   const u=S.users[uid],m=MISSIONS.find(x=>x.id===mid);
   if(!m||!u||u.master)return;
@@ -1675,14 +1675,15 @@ function createClan(){
   const tag=$('#ctag').value.trim().toUpperCase(),name=$('#cname').value.trim();
   if(!tag||!name)return toast('Tag and name required.');
   const id='c'+Date.now();
-  S.clans.unshift({id,tag,name,owner:S.me,color:$('#ccol').value,members:[S.me],about:$('#cabout').value.trim()});
-  S.users[S.me].clan=id;save();document.querySelector('.overlay').remove();render();toast('Clan founded. ['+tag+'] rides.');
+  const clan={id,tag,name,owner:S.me,color:$('#ccol').value,members:[S.me],about:$('#cabout').value.trim()};
+  S.clans.unshift(clan);S.users[S.me].clan=id;save();if(CLOUD)cloudPut('clan',id,clan);
+  document.querySelector('.overlay').remove();render();toast('Clan founded. ['+tag+'] rides.');
 }
 function joinClan(id){const u=S.users[S.me];
-  if(u.clan){const old=S.clans.find(c=>c.id===u.clan);if(old)old.members=old.members.filter(m=>m!==u.id);}
-  const c=S.clans.find(c=>c.id===id);if(!c.members.includes(u.id))c.members.push(u.id);u.clan=id;save();render();toast('Repping ['+c.tag+'] now.');}
+  if(u.clan){const old=S.clans.find(c=>c.id===u.clan);if(old){old.members=old.members.filter(m=>m!==u.id);if(CLOUD)cloudPut('clan',old.id,old);}}
+  const c=S.clans.find(c=>c.id===id);if(!c.members.includes(u.id))c.members.push(u.id);u.clan=id;save();if(CLOUD)cloudPut('clan',c.id,c);render();toast('Repping ['+c.tag+'] now.');}
 function leaveClan(){const u=S.users[S.me];const c=S.clans.find(c=>c.id===u.clan);
-  if(c)c.members=c.members.filter(m=>m!==u.id);u.clan=null;save();render();toast('Left the clan.');}
+  if(c){c.members=c.members.filter(m=>m!==u.id);if(CLOUD)cloudPut('clan',c.id,c);}u.clan=null;save();render();toast('Left the clan.');}
 
 /* ---- live map ---- */
 function pMap(){
@@ -1762,8 +1763,8 @@ function joinPin(uid){
 }
 function sendChallenge(uid){
   const ev=S.events.find(e=>e.id===$('#chv').value);
-  S.challenges.push({id:'ch'+Date.now(),from:S.me,to:uid,venue:ev.title+' ('+ev.when+')',status:'pending',t:'Just now'});
-  save();document.querySelector('.overlay').remove();render();
+  const ch={id:'ch'+Date.now(),from:S.me,to:uid,venue:ev.title+' ('+ev.when+')',status:'pending',t:'Just now'};
+  S.challenges.push(ch);save();if(CLOUD)cloudPut('challenge',ch.id,ch);document.querySelector('.overlay').remove();render();
   toast('Challenge sent to '+S.users[uid].nick+' — settle it at '+ev.title+' 🏁');
 }
 
@@ -1793,7 +1794,8 @@ function pChat(){
 function postChat(){
   const el=$('#pcmsg'),t=el.value.trim();if(!t)return;
   const now=new Date(),hh=((now.getHours()+11)%12+1),mm=String(now.getMinutes()).padStart(2,'0'),ap=now.getHours()>=12?'PM':'AM';
-  S.paddockChat.push({from:S.me,text:t,t:hh+':'+mm+' '+ap});save();render();
+  const msg={id:'m'+Date.now()+Math.random().toString(36).slice(2,5),from:S.me,text:t,t:hh+':'+mm+' '+ap};
+  S.paddockChat.push(msg);save();if(CLOUD)cloudPut('chat',msg.id,msg);render();
   const box=document.querySelector('.card[style*="overflow-y"]');if(box)box.scrollTop=box.scrollHeight;
 }
 function announceModal(){
@@ -1811,9 +1813,10 @@ function announceModal(){
 }
 function postAnnounce(){
   const t=$('#an_t').value.trim();if(!t)return toast('Give it a title.');
-  S.announcements.unshift({id:'an'+Date.now(),from:S.me,title:t,when:$('#an_w').value.trim(),place:$('#an_p').value.trim(),
-    trophy:$('#an_tr').value.trim(),xp:+($('#an_xp').value||0),purse:0,text:$('#an_x').value.trim(),t:'Just now'});
-  save();document.querySelector('.overlay').remove();render();toast('Announcement posted to the paddock 📣');
+  const an={id:'an'+Date.now(),from:S.me,title:t,when:$('#an_w').value.trim(),place:$('#an_p').value.trim(),
+    trophy:$('#an_tr').value.trim(),xp:+($('#an_xp').value||0),purse:0,text:$('#an_x').value.trim(),t:'Just now'};
+  S.announcements.unshift(an);save();if(CLOUD)cloudPut('announce',an.id,an);
+  document.querySelector('.overlay').remove();render();toast('Announcement posted to the paddock 📣');
 }
 
 /* ---- admin (Master only) ---- */
@@ -1906,9 +1909,19 @@ async function cloudLoadShared(){
     if(lst)S.listings=lst.map(x=>x.data).filter(Boolean);
     const {data:evs}=await sb.from('events').select('data').order('created_at',{ascending:false});
     if(evs&&evs.length)S.events=evs.map(x=>x.data).filter(Boolean);
+    // community: clans, chat, announcements, challenges
+    const {data:ad}=await sb.from('app_data').select('kind,data,created_at').order('created_at',{ascending:true});
+    if(ad){
+      S.clans=ad.filter(r=>r.kind==='clan').map(r=>r.data).filter(Boolean);
+      S.paddockChat=ad.filter(r=>r.kind==='chat').map(r=>r.data).filter(Boolean);
+      S.announcements=ad.filter(r=>r.kind==='announce').map(r=>r.data).filter(Boolean).reverse();
+      S.challenges=ad.filter(r=>r.kind==='challenge').map(r=>r.data).filter(Boolean);
+    }
     save();
   }catch(e){console.warn('shared load',e)}
 }
+async function cloudPut(kind,id,obj){if(!CLOUD)return;try{await sb.from('app_data').upsert({id:kind+':'+id,kind,owner:S.me,data:obj});}catch(e){}}
+async function cloudDel(kind,id){if(!CLOUD)return;try{await sb.from('app_data').delete().eq('id',kind+':'+id);}catch(e){}}
 function cloudSaveMe(){
   if(!CLOUD||!S.me)return;clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{const u=S.users[S.me];if(!u)return;
