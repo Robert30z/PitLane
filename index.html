@@ -6,6 +6,14 @@
 <meta charset="utf-8">
 <title>PitLane — The Racing Marketplace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B0D10">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PitLane">
 <style>
 /* ============ PITLANE DESIGN TOKENS — night-race world, dark by design ============ */
 :root{
@@ -2208,6 +2216,43 @@ if(window.supabase&&window.supabase.createClient){
   if(S.me){tab='market';view={name:'tab'};openDeep();}
   render();
 }
+</script>
+
+<script>
+/* =================== PWA — install to home screen =================== */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW register failed',e));
+  });
+}
+let deferredInstall=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredInstall=e;
+  if(localStorage.getItem('pl_install_dismissed'))return;
+  const b=document.createElement('div');
+  b.id='installbar';
+  b.style.cssText='position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;background:#1B1F27;border:1px solid #272D38;border-radius:14px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:460px;width:calc(100% - 32px)';
+  b.innerHTML='<img src="icon-192.png" alt="" style="width:38px;height:38px;border-radius:9px">'+
+    '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">Install PitLane</div>'+
+    '<div style="font-size:12px;color:#8B94A6">Full-screen app on your home screen</div></div>'+
+    '<button onclick="doInstall()" style="background:#E8362D;color:#fff;font-weight:700;font-size:13px;padding:9px 14px;border-radius:10px">Install</button>'+
+    '<button onclick="dismissInstall()" aria-label="Dismiss" style="color:#8B94A6;font-size:18px;padding:4px 6px">&#10005;</button>';
+  document.body.appendChild(b);
+});
+function doInstall(){
+  const b=document.getElementById('installbar');if(b)b.remove();
+  if(!deferredInstall)return;
+  deferredInstall.prompt();
+  deferredInstall.userChoice.then(()=>{deferredInstall=null;});
+}
+function dismissInstall(){
+  const b=document.getElementById('installbar');if(b)b.remove();
+  localStorage.setItem('pl_install_dismissed','1');
+}
+window.addEventListener('appinstalled',()=>{
+  const b=document.getElementById('installbar');if(b)b.remove();
+  if(typeof toast==='function')toast('PitLane installed 🏁');
+});
 </script>
 
 <!-- v0.6 -->
