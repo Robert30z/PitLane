@@ -32,6 +32,10 @@ input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);
 input:focus,select:focus,textarea:focus{border-color:var(--red)}
 input::placeholder,textarea::placeholder{color:#5D6675}
 :focus-visible{outline:2px solid var(--red-hot);outline-offset:2px}
+.pwwrap{position:relative}
+.pwwrap input{padding-right:44px}
+.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:18px;cursor:pointer;padding:6px;opacity:.75;width:auto}
+.eye:hover{opacity:1}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ============ APP SHELL ============ */
@@ -577,13 +581,14 @@ function art(l,label){
 function go(name,arg){view={name,arg};render();window.scrollTo(0,0)}
 function setTab(t){tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
 function render(){
-  if(!S.me&&!['auth-welcome','auth-signup','auth-verify','auth-login','auth-check'].includes(view.name))view={name:'auth-welcome'};
+  if(!S.me&&!['auth-welcome','auth-signup','auth-verify','auth-login','auth-check','auth-reset'].includes(view.name))view={name:'auth-welcome'};
   const v=view.name;
   if(v==='auth-welcome')return APP.innerHTML=vWelcome();
   if(v==='auth-signup')return APP.innerHTML=vSignup();
   if(v==='auth-verify')return APP.innerHTML=vVerify();
   if(v==='auth-login')return APP.innerHTML=vLogin();
   if(v==='auth-check')return APP.innerHTML=vCheck();
+  if(v==='auth-reset')return APP.innerHTML=vReset();
   if(v==='listing')return APP.innerHTML=shell(vListing(view.arg),false);
   if(v==='wizard')return APP.innerHTML=shell(vWizard(),false);
   if(v==='convo')return APP.innerHTML=shell(vConvo(view.arg),false);
@@ -627,9 +632,36 @@ function vLogin(){
   '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Welcome back</h1>'+
   '<p style="color:var(--mut);font-size:14px;margin-bottom:20px">Log in to the grid.</p>'+
   '<div class="field"><label for="li_email">Email</label><input id="li_email" type="email" autocomplete="email"></div>'+
-  '<div class="field"><label for="li_pw">Password</label><input id="li_pw" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')login()"></div>'+
+  '<div class="field"><label for="li_pw">Password</label><div class="pwwrap"><input id="li_pw" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')login()"><button type="button" class="eye" onclick="togglePw(\'li_pw\',this)" aria-label="Show password">👁</button></div></div>'+
   '<button class="btn" onclick="login()">Log in</button>'+
-  '<p class="hint" style="text-align:center;margin-top:16px">No account? <a href="#" onclick="go(\'auth-signup\');return false" style="color:var(--red-hot)">Create one</a></p></div>';
+  '<p class="hint" style="text-align:center;margin-top:14px"><a href="#" onclick="forgotPw();return false" style="color:var(--amber)">Forgot password?</a></p>'+
+  '<p class="hint" style="text-align:center;margin-top:6px">No account? <a href="#" onclick="go(\'auth-signup\');return false" style="color:var(--red-hot)">Create one</a></p></div>';
+}
+function togglePw(id,btn){const el=document.getElementById(id);if(!el)return;
+  if(el.type==='password'){el.type='text';btn.textContent='🙈'}else{el.type='password';btn.textContent='👁'}}
+async function forgotPw(){
+  const email=(document.getElementById('li_email')||{}).value;
+  if(!email||!email.trim())return toast('Type your email above first, then tap Forgot password.');
+  if(!CLOUD)return toast('Password reset needs the live app.');
+  toast('Sending reset link…');
+  const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:SITE});
+  if(error)return toast(error.message);
+  toast('Reset link sent to '+email.trim()+' — check your email (and spam).');
+}
+function vReset(){
+  return '<div class="auth"><div class="glow"></div>'+
+  '<h1 class="disp" style="font-size:30px;margin-bottom:6px">Set a new password</h1>'+
+  '<p style="color:var(--mut);font-size:14px;margin-bottom:16px">Pick a new password for your account.</p>'+
+  '<div class="field"><label for="rs_pw">New password</label><div class="pwwrap"><input id="rs_pw" type="password" autocomplete="new-password"><button type="button" class="eye" onclick="togglePw(\'rs_pw\',this)" aria-label="Show password">👁</button></div></div>'+
+  '<button class="btn" onclick="doReset()">Save new password</button></div>';
+}
+async function doReset(){
+  const pw=(document.getElementById('rs_pw')||{}).value||'';
+  if(pw.length<6)return toast('Password needs 6+ characters.');
+  const {error}=await sb.auth.updateUser({password:pw});
+  if(error)return toast(error.message);
+  await cloudLoadMe();await cloudLoadShared();cloudRealtime();
+  tab='market';view={name:'tab'};render();toast('Password updated. You\'re in 🏁');
 }
 async function login(){
   const email=$('#li_email').value.trim(),pw=$('#li_pw').value;
@@ -650,7 +682,7 @@ function vSignup(){
   '<div class="field"><label for="f_last">Last name</label><input id="f_last" autocomplete="family-name"></div></div>'+
   '<div class="field"><label for="f_nick">Nickname — your scene name</label><input id="f_nick" placeholder="e.g. NightShift, BoostedMarv" maxlength="20"></div>'+
   '<div class="field"><label for="f_email">Email</label><input id="f_email" type="email" autocomplete="email"><p class="hint">'+(typeof CLOUD!=='undefined'&&CLOUD?'We\'ll email you a confirmation link.':'We\'ll send a 6-digit code to verify it.')+'</p></div>'+
-  '<div class="field"><label for="f_pw">Password</label><input id="f_pw" type="password" autocomplete="new-password"></div>'+
+  '<div class="field"><label for="f_pw">Password</label><div class="pwwrap"><input id="f_pw" type="password" autocomplete="new-password"><button type="button" class="eye" onclick="togglePw(\'f_pw\',this)" aria-label="Show password">👁</button></div></div>'+
   '<label class="rules"><input type="checkbox" id="f_rules"><span>I agree to the <b>PitLane Rules</b>: real photos of my actual vehicle, accurate title status, lawful sales only, and community events at sanctioned venues. Listings that break the rules get black-flagged.</span></label>'+
   '<button class="btn" onclick="signup()">'+(typeof CLOUD!=='undefined'&&CLOUD?'Create account':'Send verification code')+'</button></div>';
 }
@@ -665,7 +697,9 @@ async function signup(){
   if(CLOUD){
     toast('Creating account…');
     const {data,error}=await cloudSignup(first,last,nick,email,pw);
-    if(error)return toast(error.message);
+    if(error)return toast(error.message.includes('already')?'That email already has an account — try logging in.':error.message);
+    if(data&&data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
+      tab='market';view={name:'tab'};render();toast('Welcome to the grid, '+nick+' 🏁');return;}
     pend={email};go('auth-check');return;
   }
   const code=String(Math.floor(100000+Math.random()*900000));
@@ -2134,6 +2168,7 @@ async function cloudSignup(first,last,nick,email,pw){
 async function cloudLogin(email,pw){return await sb.auth.signInWithPassword({email,password:pw});}
 async function cloudBoot(){
   if(!cloudReady())return;
+  sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){view={name:'auth-reset'};render();}});
   try{const {data}=await sb.auth.getSession();
     if(data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
       tab='market';view={name:'tab'};openDeep&&openDeep();}
