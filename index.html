@@ -1187,7 +1187,7 @@ function reviewsBlock(u,uid,self){
   const revs=u.reviews||[];const avg=revs.length?(revs.reduce((a,r)=>a+r.stars,0)/revs.length):0;
   return '<div class="shead"><h2>Reviews</h2>'+(revs.length?'<span class="stars">'+stars(avg)+' '+avg.toFixed(1)+'</span>':'<span class="hint">none yet</span>')+'</div>'+
   (!self&&S.me?'<button class="btn ghost sm" style="margin-bottom:10px" onclick="reviewModal(\''+uid+'\')">★ Leave a review</button>':'')+
-  (revs.length?revs.slice(0,6).map(r=>{const f=S.users[r.from]||{nick:'?'};
+  (revs.length?revs.slice(0,6).map(r=>{const f=S.users[r.from]||{nick:r.fromNick||'?'};
     return '<div class="card" style="padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>'+nn(f)+'</b><span class="stars">'+stars(r.stars)+'</span></div>'+
     (r.text?'<p style="font-size:13px;color:#C6CDD9;margin-top:4px">'+esc(r.text)+'</p>':'')+'</div>';
   }).join(''):'');
@@ -1208,9 +1208,17 @@ function reviewModal(uid){
 function setRvStars(n){reviewStars=n;const box=$('#rvstars');if(box)[...box.children].forEach((s,i)=>s.style.opacity=i<n?'1':'.3');}
 function submitReview(uid){
   const u=S.users[uid];u.reviews=u.reviews||[];
-  u.reviews.unshift({from:S.me,stars:reviewStars,text:$('#rvtext').value.trim(),t:Date.now()});
+  const rv={from:S.me,fromNick:(S.users[S.me]||{}).nick||'',to:uid,stars:reviewStars,text:$('#rvtext').value.trim(),t:Date.now()};
+  u.reviews=u.reviews.filter(r=>r.from!==S.me);u.reviews.unshift(rv);   // one review per reviewer — reposting updates it
   u.rating=u.reviews.reduce((a,r)=>a+r.stars,0)/u.reviews.length;
-  save();document.querySelector('.overlay').remove();render();toast('Review posted. Trust built. ★');
+  save();if(CLOUD)cloudPut('review',uid+':'+S.me,rv);
+  document.querySelector('.overlay').remove();render();toast('Review posted. Trust built. ★');
+}
+function applyReview(d){ // attach a cloud review to its target + recompute rating
+  if(!d||!d.to||!S.users[d.to])return;
+  const u=S.users[d.to];u.reviews=(u.reviews||[]).filter(r=>r.from!==d.from);
+  u.reviews.unshift(d);u.reviews.sort((a,b)=>(b.t||0)-(a.t||0));
+  u.rating=u.reviews.reduce((a,r)=>a+r.stars,0)/u.reviews.length;
 }
 
 /* =================== PRESTIGE WORLD =================== */
@@ -1896,7 +1904,10 @@ function drawMap(){
   x.beginPath();x.arc(w*0.6,h*0.3,10,0,7);x.stroke();
 }
 function toggleVisible(){const u=S.users[S.me];u.loc.visible=!u.loc.visible;
-  if(u.loc.visible&&(u.loc.area==='—'||!u.loc.area))u.loc.area='Your spot';save();render();
+  if(u.loc.visible&&(u.loc.area==='—'||!u.loc.area))u.loc.area='Your spot';save();
+  if(CLOUD)cloudPut('loc',S.me,{id:S.me,nick:u.nick,x:u.loc.x,y:u.loc.y,lat:u.loc.lat,lng:u.loc.lng,
+    visible:u.loc.visible,area:u.loc.area,master:u.master,prestige:u.prestige,xp:u.xp});
+  render();
   toast(u.loc.visible?'You\'re on the map now. 📍':'You went dark.');}
 function joinPin(uid){
   const x=S.users[uid];
@@ -2135,6 +2146,10 @@ async function cloudLoadShared(){
       S.announcements=ad.filter(r=>r.kind==='announce').map(r=>r.data).filter(Boolean).reverse();
       S.challenges=ad.filter(r=>r.kind==='challenge').map(r=>r.data).filter(Boolean);
       ad.filter(r=>r.kind==='loc').forEach(r=>{const d=r.data;if(d&&d.id&&S.users[d.id])S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);});
+      // cross-user seller reviews: stored in app_data (kind='review'), never in the
+      // target's own profile blob (RLS only lets owners write their own profile)
+      Object.values(S.users).forEach(u=>{u.reviews=[];});
+      ad.filter(r=>r.kind==='review').forEach(r=>applyReview(r.data));
       S.merch=ad.filter(r=>r.kind==='merch').map(r=>r.data).filter(Boolean);
       S.orders=ad.filter(r=>r.kind==='order').map(r=>r.data).filter(Boolean);
     }
@@ -2152,6 +2167,7 @@ function cloudRealtime(){
     else if(r.kind==='challenge'){const i=S.challenges.findIndex(x=>x.id===d.id);if(i<0){S.challenges.push(d);if(d.to===S.me){notify('🏁 '+((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');renderNotifDot();}}else S.challenges[i]=d;if(world==='prestige'&&ptab==='ranks')render();}
     else if(r.kind==='clan'){const i=S.clans.findIndex(x=>x.id===d.id);if(i<0)S.clans.push(d);else S.clans[i]=d;if(world==='prestige'&&ptab==='clans')render();}
     else if(r.kind==='loc'){if(d.id&&S.users[d.id]){S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);if(world==='prestige'&&ptab==='map')render();}}
+    else if(r.kind==='review'){applyReview(d);if(d.to===S.me&&d.from!==S.me){notify('★ '+(d.fromNick||'Someone')+' left you a '+d.stars+'-star review');renderNotifDot();}if(view.name==='user'||view.name==='profile')render();}
     else if(r.kind==='merch'){if(!S.merch.some(x=>x.id===d.id)){S.merch.unshift(d);if(view.name==='merch')render();}}
     else if(r.kind==='order'){if(!S.orders.some(x=>x.id===d.id)){S.orders.unshift(d);if(S.me&&S.users[S.me]&&S.users[S.me].master){notify('🛒 New merch order: '+(d.itemName||''));renderNotifDot();}if(view.name==='merch')render();}}
   }).subscribe();
