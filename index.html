@@ -1,3 +1,8 @@
+<!--
+  PitLane — Copyright © 2026 Roberto M. All rights reserved.
+  Proprietary. No copying, reuse, or derivative works without written permission.
+  "PitLane" is a claimed trademark of the owner. See LICENSE.
+-->
 <meta charset="utf-8">
 <title>PitLane — The Racing Marketplace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
@@ -624,7 +629,7 @@ async function login(){
   toast('Logging in…');
   const {error}=await cloudLogin(email,pw);
   if(error)return toast(error.message.includes('confirm')?'Confirm your email first — check your inbox.':error.message);
-  await cloudLoadMe();await cloudLoadShared();
+  await cloudLoadMe();await cloudLoadShared();cloudRealtime();
   tab='market';view={name:'tab'};if(typeof openDeep==='function')openDeep();render();
   toast('Welcome back, '+(S.users[S.me]||{}).nick+' 🏁');
 }
@@ -1180,10 +1185,14 @@ function vGate(){
 /* ---- prestige shell / nav ---- */
 function setPTab(t){ptab=t;view={name:'prestige'};render();window.scrollTo(0,0)}
 function prestigeShell(){
-  const map={home:pHome,ranks:pRanks,chat:pChat,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR};
+  const map={home:pHome,ranks:pRanks,chat:pChat,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR,shop:pShop,notifs:pNotifs};
   const inner=(map[ptab]||pHome)();
+  const unread=(S.notifs||[]).some(n=>!n.read);
   const top='<header class="p-top"><div class="plogo">PIT<em>LANE</em> · <span style="color:var(--amber)">PADDOCK</span></div>'+
-    '<div style="flex:1"></div><button class="lockbtn" onclick="exitPrestige()">&#8592; MARKET</button></header>';
+    '<div style="flex:1"></div>'+
+    '<button class="lockbtn" style="position:relative;margin-right:8px" onclick="setPTab(\'notifs\')" aria-label="Notifications">🔔'+
+    '<span id="notifdot" style="position:absolute;top:2px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--red);display:'+(unread?'block':'none')+'"></span></button>'+
+    '<button class="lockbtn" onclick="exitPrestige()">&#8592; MARKET</button></header>';
   const me=S.users[S.me];
   const items=[['home','Garage','profile'],['ranks','Races','events'],['MAP','',''],['chat','Chat','chat'],[me.master?'admin':'clans',me.master?'Admin':'Clans','market']];
   const nav='<nav class="pnav">'+items.map(([k,lab,ic])=>{
@@ -1226,9 +1235,14 @@ function unlockedEmblems(u){
 }
 function unlockedCards(u){
   const L=u.master?MAXLVL:lvlOf(u.xp||0).l;
-  return CARDS.filter(c=>u.master||(c.min&&L>=c.min));
+  let list=CARDS.filter(c=>u.master||(c.min&&L>=c.min));
+  if(typeof isPro==='function'&&isPro(u))list=list.concat(PRO_CARDS);
+  const seasonDone=typeof SEASON!=='undefined'&&SEASON.spots.every(s=>u.spotShots&&u.spotShots[s]);
+  if(typeof SEASON!=='undefined'&&(u.master||(typeof isPro==='function'&&isPro(u))||seasonDone))list.push(SEASON.card);
+  return list;
 }
-function cardCss(u){const id=u.eqCard;const c=CARDS.find(x=>x.id===id)||unlockedCards(u).slice(-1)[0]||CARDS[0];return c.css}
+function cardCss(u){const id=u.eqCard;const all=CARDS.concat(typeof PRO_CARDS!=='undefined'?PRO_CARDS:[],typeof SEASON!=='undefined'?[SEASON.card]:[]);
+  const c=all.find(x=>x.id===id)||unlockedCards(u).slice(-1)[0]||CARDS[0];return c.css}
 function equipCard(id){S.users[S.me].eqCard=id;save();render();toast('Calling card equipped.')}
 
 /* ---- name colors: gold reserved for Master; others unlock 1 per prestige ---- */
@@ -1301,6 +1315,8 @@ function pHome(){
   (u.clan?'<span class="badge cat">['+esc((S.clans.find(c=>c.id===u.clan)||{}).tag||'')+']</span>':'')+'</div>'+
   (eqTitle?'<div class="titlebadge" style="margin:6px 0 2px">'+(eqEmb?emblemArt(eqEmb[0],eqEmb[1],22):'')+' '+esc(eqTitle)+'</div>':'')+
   (u.bio?'<p style="color:#C6CDD9;font-size:14px;margin:10px 0">'+esc(u.bio)+'</p>':'')+
+  (isPro(u)?'<span class="titlebadge" style="margin:4px 0;display:inline-flex"><span style="color:#FFD34D;font-weight:800">✦ PIT PASS PRO</span></span>':'')+
+  seasonBanner()+
   rankCard(u,true)+
   '<div class="shead"><h2><s>My garage</s> — '+gar.length+' '+(gar.length===1?'vehicle':'vehicles')+'</h2>'+
     '<button class="btn sm amber" onclick="addVehicle()">+ Add vehicle</button></div>'+
@@ -1320,6 +1336,7 @@ function pHome(){
   '<button class="btn ghost" onclick="setPTab(\'qr\')">My QR code</button>'+
   '<button class="btn ghost" onclick="setPTab(\'ranks\')">Races</button></div>'+
   '<button class="btn ghost" style="margin-top:10px" onclick="shareProfile(\''+S.me+'\')">🔗 Share my profile (IG link + card)</button>'+
+  '<button class="btn '+(isPro(u)?'ghost':'amber')+'" style="margin-top:10px" onclick="setPTab(\'shop\')">'+(isPro(u)?'✦ Pit Pass Pro — cosmetics':'✦ Get Pit Pass')+'</button>'+
   (u.master?'<button class="btn amber" style="margin-top:10px" onclick="setPTab(\'admin\')">👑 Master control panel</button>':'')+
   '<button class="btn line" style="margin-top:10px" onclick="exitPrestige()">Back to marketplace</button>';
 }
@@ -1699,6 +1716,8 @@ function pMap(){
   '<div class="mapwrap"><canvas id="mapcv"></canvas>'+pins+'</div>'+
   '<div class="mapctl"><div><b style="font-size:14px">Show me on the map</b><div class="hint">'+(u.loc.visible?'You\'re visible as '+esc(u.nick)+' · '+esc(u.loc.area):'You\'re hidden')+'</div></div>'+
   '<button class="toggle '+(u.loc.visible?'on':'')+'" onclick="toggleVisible()" aria-label="visibility"><i></i></button></div>'+
+  '<button class="btn ghost sm" style="margin-top:10px" onclick="useGPS()">📍 Use my real GPS location</button>'+
+  (u.loc&&u.loc.lat?'<a class="btn line sm" style="margin-top:8px;text-decoration:none;display:block" href="https://maps.google.com/?q='+u.loc.lat+','+u.loc.lng+'" target="_blank" rel="noopener">Open my spot in Google Maps</a>':'')+
   '<div class="warn" style="margin-top:12px"><b>Real talk on the map:</b> a live map of real people by name is powerful but heavy. It only becomes real with the phase-2 backend + Google Maps key — and if it\'s ever used to coordinate illegal street racing or dodge police, the app (and this location history) turns into evidence that works <b>against</b> members. Built for meets, track days and finding the crew — keep it to sanctioned spots.</div>'+
   cultureRunHTML(u);
 }
@@ -1711,9 +1730,10 @@ function cultureRunHTML(u){
     '<div style="display:flex;gap:12px;align-items:flex-start">'+
     '<div style="flex:0 0 46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#0e3a2a,#0b0d10);display:flex;align-items:center;justify-content:center;font-size:20px">📍</div>'+
     '<div style="flex:1;min-width:0"><b>'+esc(s.name)+'</b> <span class="hint">· '+esc(s.town)+'</span>'+
+    (isSeasonSpot(s.id)?' <span class="badge f">🔥 2X SEASON</span>':'')+
     '<p style="font-size:12.5px;color:#9AA1AC;margin:2px 0 6px">'+esc(s.desc)+'</p>'+
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-    '<span class="xp mono" style="color:var(--amber);font-weight:700">+'+s.xp+' XP</span>'+
+    '<span class="xp mono" style="color:var(--amber);font-weight:700">+'+(isSeasonSpot(s.id)?s.xp*2:s.xp)+' XP</span>'+
     '<a class="btn sm line" href="https://maps.google.com/?q='+s.lat+','+s.lng+'" target="_blank" rel="noopener" style="text-decoration:none">Open in Maps</a>'+
     (pic?'<span class="badge v">✓ DONE</span>':'<label class="btn sm amber" style="position:relative;overflow:hidden">📸 Upload car here<input type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0" onchange="spotUpload(this,\''+s.id+'\')"></label>')+
     '</div></div>'+
@@ -1726,9 +1746,12 @@ function spotUpload(inp,sid){
   const f=inp.files[0];if(!f)return;const u=S.users[S.me];
   const r=new FileReader();r.onload=()=>{u.spotShots=u.spotShots||{};const first=!u.spotShots[sid];
     u.spotShots[sid]=r.result;
-    const sp=SPOTS.find(s=>s.id===sid);
-    if(first&&!u.master){u.xp=(u.xp||0)+sp.xp;}
-    save();render();toast(first?('📍 '+sp.name+' logged — +'+(u.master?0:sp.xp)+' XP. Culture grows.'):'Photo updated.');
+    const sp=SPOTS.find(s=>s.id===sid);const xp=isSeasonSpot(sid)?sp.xp*2:sp.xp;
+    if(first&&!u.master)u.xp=(u.xp||0)+xp;
+    const seasonDone=SEASON.spots.every(x=>u.spotShots[x]);
+    if(first&&seasonDone&&!u.unlockedEmblems.some(e=>e[0]===SEASON.emblem[0]))u.unlockedEmblems.push(SEASON.emblem);
+    save();render();
+    toast(first?('📍 '+sp.name+' — +'+(u.master?0:xp)+' XP'+(seasonDone?'. Season '+SEASON.n+' emblem + card unlocked! 🔥':'. Culture grows.')):'Photo updated.');
   };r.readAsDataURL(f);
 }
 function drawMap(){
@@ -1878,6 +1901,73 @@ function pQR(){
 /* add build mission to catalog */
 MISSIONS.push({id:'first_build',t:'Spec\'d Out',d:'Save your first car build in the garage',xp:250,once:1});
 
+/* =================== SEASONS (Forza-style) =================== */
+const SEASON={n:1,name:'Summer Heat',ends:'Sep 1',spots:['sp_mayaguez','sp_morro','sp_crashboat'],
+  emblem:['S1','#FF5A4E'],card:{id:'season1',name:'Season 1',css:'linear-gradient(120deg,#e8362d,#f2b33d)',season:1}};
+function isSeasonSpot(id){return SEASON.spots.includes(id)}
+function seasonBanner(){
+  return '<div class="card" style="padding:13px 15px;margin:10px 0;background:linear-gradient(100deg,rgba(232,54,45,.16),rgba(242,179,61,.10));border-color:rgba(242,179,61,.4)">'+
+  '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+  '<div><span class="eyebrow" style="color:var(--amber)">SEASON '+SEASON.n+'</span><div class="disp" style="font-size:19px">'+esc(SEASON.name)+'</div></div>'+
+  '<span class="hint">ends '+esc(SEASON.ends)+'</span></div>'+
+  '<p class="hint" style="margin-top:6px">🔥 <b style="color:var(--amber)">Double XP</b> on this season\'s Culture Run spots. Clear all 3 for the limited '+emblemArt(SEASON.emblem[0],SEASON.emblem[1],18)+' <b>Season '+SEASON.n+'</b> emblem + calling card.</p></div>';
+}
+/* =================== PIT PASS + SHOP =================== */
+const PITPASS='$4.99/mo';
+function isPro(u){return !!(u&&(u.master||u.pro))}
+const PRO_CARDS=[
+  {id:'holo',name:'Holographic',css:'linear-gradient(120deg,#6b4ba8,#2c6fb5,#39b26b)',pro:1},
+  {id:'flames',name:'Flames',css:'linear-gradient(120deg,#e8362d,#f2b33d,#111)',pro:1},
+  {id:'chrome',name:'Liquid Chrome',css:'linear-gradient(120deg,#c9cfd8,#5d6675,#eef1f6)',pro:1}
+];
+function pShop(){
+  const u=S.users[S.me],pro=isPro(u);
+  return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 4px">Pit Pass</h1>'+
+  '<p class="hint" style="margin-bottom:14px">Free gets you the whole marketplace + community. Pit Pass unlocks the flex.</p>'+
+  '<div class="card '+(!pro?'':'')+'" style="padding:16px;margin-bottom:12px;border-color:'+(pro?'var(--line)':'var(--red)')+'">'+
+  '<div style="display:flex;justify-content:space-between"><b class="disp" style="font-size:17px">FREE</b>'+(!pro?'<span class="badge v">YOUR PLAN</span>':'')+'</div>'+
+  '<ul style="padding-left:18px;margin-top:8px;color:#C6CDD9;font-size:13.5px;display:grid;gap:4px"><li>Buy &amp; sell in the marketplace</li><li>Events, meets, Culture Run</li><li>Ranks, races, W/L, clans</li><li>1 vehicle in your garage</li></ul></div>'+
+  '<div class="card rankcard master" style="padding:16px;margin-bottom:12px">'+
+  '<div style="display:flex;justify-content:space-between;align-items:center"><b class="disp" style="font-size:17px;color:#FFD34D">PIT PASS PRO</b>'+
+  (pro?'<span class="badge masterbadge">✓ ACTIVE</span>':'<span class="mono" style="color:#FFD34D;font-weight:800">'+PITPASS+'</span>')+'</div>'+
+  '<ul style="padding-left:18px;margin-top:8px;color:#EEF1F6;font-size:13.5px;display:grid;gap:4px">'+
+  '<li>Unlimited vehicles in your garage</li><li>Premium calling cards + animated emblems</li><li>Every name color unlocked now</li><li>Double Culture Run XP</li><li>Priority verified badge + Pro flair</li></ul>'+
+  (pro?'<div class="launchnote" style="margin-top:12px">You\'re Pro. Flex earned. 🏁</div>'
+    :'<button class="btn amber" style="margin-top:12px" onclick="getPass()">Get Pit Pass — FREE for founding members</button>'+
+     '<p class="hint" style="margin-top:6px">Free during launch. Real billing (Stripe) turns on later — founding members keep it.</p>')+'</div>'+
+  '<div class="shead"><h2>Cosmetic shop</h2></div><div class="cardgrid">'+
+  PRO_CARDS.map(c=>'<button class="ccard '+(u.eqCard===c.id?'on':'')+'" onclick="'+(pro?'equipCard(\''+c.id+'\')':'setPTab(\'shop\');toast(\'Pit Pass Pro unlocks this ✦\')')+'"><span class="ccprev" style="background:'+c.css+'"></span><span class="ename">'+(pro?'':'🔒 ')+esc(c.name)+'</span></button>').join('')+'</div>'+
+  '<p class="hint" style="margin-top:8px">'+(pro?'Equip any — they\'re yours.':'Unlock the shop with Pit Pass Pro.')+'</p>';
+}
+function getPass(){const u=S.users[S.me];u.pro=true;save();render();toast('Pit Pass unlocked — founding member. Flex on 🏁');}
+/* =================== NOTIFICATIONS =================== */
+function notify(text){S.notifs=S.notifs||[];S.notifs.unshift({text,t:Date.now(),read:false});
+  if(S.notifs.length>40)S.notifs=S.notifs.slice(0,40);save();
+  const b=document.getElementById('notifdot');if(b)b.style.display='block';}
+function pNotifs(){
+  const ns=S.notifs||[];(ns).forEach(n=>n.read=true);save();
+  return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'+
+  '<h1 class="disp" style="font-size:24px;margin:4px 0 12px">Notifications</h1>'+
+  (ns.length?ns.map(n=>'<div class="card" style="padding:12px 14px;margin-bottom:8px"><div style="font-size:14px">'+esc(n.text)+'</div>'+
+    '<div class="hint" style="margin-top:3px">'+new Date(n.t).toLocaleString()+'</div></div>').join('')
+    :'<div class="empty">No notifications yet.</div>');
+}
+/* =================== REAL GPS =================== */
+function useGPS(){
+  if(!navigator.geolocation)return toast('No GPS on this device.');
+  toast('Getting your location…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const u=S.users[S.me];u.loc=u.loc||{};u.loc.lat=pos.coords.latitude;u.loc.lng=pos.coords.longitude;
+    u.loc.visible=true;u.loc.area='Live GPS';
+    // map lat/lng into the stylized board (rough PR bounds)
+    u.loc.x=Math.max(6,Math.min(94,((pos.coords.longitude+67.3)/(66-67.3+1.3))*100));
+    u.loc.y=Math.max(6,Math.min(94,(1-((pos.coords.latitude-17.85)/(18.55-17.85)))*100));
+    save();if(CLOUD)cloudPut('loc',S.me,{id:S.me,nick:u.nick,x:u.loc.x,y:u.loc.y,lat:u.loc.lat,lng:u.loc.lng,visible:true,area:'Live GPS',master:u.master,prestige:u.prestige,xp:u.xp});
+    render();toast('📍 You\'re live on the map by real GPS.');
+  },err=>toast('Location denied — turn on GPS/permissions.'),{enableHighAccuracy:true,timeout:10000});
+}
+
 /* =================== SUPABASE CLOUD =================== */
 const SB_URL='https://mhuhdbtqjktrieszgefo.supabase.co';
 const SB_KEY='sb_publishable_XbMw9s9Dt1OWdpHEudgALg_3sQyyER_';
@@ -1916,12 +2006,29 @@ async function cloudLoadShared(){
       S.paddockChat=ad.filter(r=>r.kind==='chat').map(r=>r.data).filter(Boolean);
       S.announcements=ad.filter(r=>r.kind==='announce').map(r=>r.data).filter(Boolean).reverse();
       S.challenges=ad.filter(r=>r.kind==='challenge').map(r=>r.data).filter(Boolean);
+      ad.filter(r=>r.kind==='loc').forEach(r=>{const d=r.data;if(d&&d.id&&S.users[d.id])S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);});
     }
     save();
   }catch(e){console.warn('shared load',e)}
 }
 async function cloudPut(kind,id,obj){if(!CLOUD)return;try{await sb.from('app_data').upsert({id:kind+':'+id,kind,owner:S.me,data:obj});}catch(e){}}
 async function cloudDel(kind,id){if(!CLOUD)return;try{await sb.from('app_data').delete().eq('id',kind+':'+id);}catch(e){}}
+function cloudRealtime(){
+  if(!CLOUD||!sb)return;
+  try{sb.channel('pl').on('postgres_changes',{event:'*',schema:'public',table:'app_data'},p=>{
+    const r=p.new;if(!r||!r.data)return;const d=r.data;
+    if(r.kind==='chat'){if(!S.paddockChat.some(m=>m.id===d.id)){S.paddockChat.push(d);if(world==='prestige'&&ptab==='chat')render();}}
+    else if(r.kind==='announce'){if(!S.announcements.some(a=>a.id===d.id)){S.announcements.unshift(d);notify('📣 New event: '+(d.title||''));if(world==='prestige'&&ptab==='chat')render();else renderNotifDot();}}
+    else if(r.kind==='challenge'){const i=S.challenges.findIndex(x=>x.id===d.id);if(i<0){S.challenges.push(d);if(d.to===S.me){notify('🏁 '+((S.users[d.from]||{}).nick||'Someone')+' challenged you to race');renderNotifDot();}}else S.challenges[i]=d;if(world==='prestige'&&ptab==='ranks')render();}
+    else if(r.kind==='clan'){const i=S.clans.findIndex(x=>x.id===d.id);if(i<0)S.clans.push(d);else S.clans[i]=d;if(world==='prestige'&&ptab==='clans')render();}
+    else if(r.kind==='loc'){if(d.id&&S.users[d.id]){S.users[d.id].loc=Object.assign({},S.users[d.id].loc||{},d);if(world==='prestige'&&ptab==='map')render();}}
+  }).subscribe();
+  sb.channel('pl2').on('postgres_changes',{event:'INSERT',schema:'public',table:'listings'},p=>{
+    const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);if(world==='market'&&tab==='market'&&view.name==='tab')render();}
+  }).subscribe();
+  }catch(e){console.warn('realtime',e)}
+}
+function renderNotifDot(){const b=document.getElementById('notifdot');if(b)b.style.display='block';}
 function cloudSaveMe(){
   if(!CLOUD||!S.me)return;clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{const u=S.users[S.me];if(!u)return;
@@ -1952,7 +2059,7 @@ async function cloudLogin(email,pw){return await sb.auth.signInWithPassword({ema
 async function cloudBoot(){
   if(!cloudReady())return;
   try{const {data}=await sb.auth.getSession();
-    if(data.session){await cloudLoadMe();await cloudLoadShared();
+    if(data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
       tab='market';view={name:'tab'};openDeep&&openDeep();}
     else{view={name:'auth-welcome'};}
   }catch(e){console.warn('cloudBoot',e)}
