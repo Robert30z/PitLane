@@ -1497,6 +1497,8 @@ function buildCard(b){
   '<div><span>Drivetrain</span><b>'+esc(b.drive||'—')+'</b></div>'+
   '<div><span>Wheels</span><b style="font-size:12px">'+esc(b.rim||'Stock')+'</b></div>'+
   '<div><span>Stance</span><b style="font-size:13px">'+esc(b.stance||'Stock')+'</b></div></div>'+
+  ((b.photos&&b.photos.length)?'<div class="shead" style="padding:12px 14px 0;margin:0"><h2 style="font-size:13px">Real photos</h2></div><div class="featrow" style="padding:8px 12px 12px;gap:8px">'+
+    b.photos.map(p=>'<img src="'+p+'" alt="car photo" style="flex:0 0 130px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">').join('')+'</div>':'')+
   ((b.mods||'').trim()?'<div style="padding:12px 14px"><span class="eyebrow">Mods</span><ul style="padding-left:18px;margin-top:6px;color:#C6CDD9;font-size:13.5px;display:grid;gap:4px">'+
     b.mods.split('\n').filter(Boolean).map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>':'')+'</div>';
 }
@@ -1530,13 +1532,25 @@ function pBuild(){
   '<div class="field"><label>Drivetrain</label><div class="pickrow">'+
   DRIVE.map(d=>'<button class="pick '+(CB.drive===d?'on':'')+'" onclick="cbSet(\'drive\',\''+d+'\')">'+d+'</button>').join('')+'</div></div>'+
   '<div class="field"><label>Mods — one per line</label><textarea rows="4" oninput="CB.mods=this.value" placeholder="Turbo — brand&#10;Coilovers — brand&#10;Tune — who did it">'+esc(CB.mods||'')+'</textarea></div>'+
+  '<div class="field"><label>📸 Real photos of this car</label><div class="gallery">'+
+  (CB.photos||[]).map((p,i)=>'<img src="'+p+'" alt="car" onclick="cbRmPhoto('+i+')" title="tap to remove">').join('')+
+  '<label class="add">+<input type="file" accept="image/*" capture="environment" onchange="cbAddPhoto(this)"></label></div>'+
+  '<p class="hint">Upload actual shots of your ride — tap a photo to remove it.</p></div>'+
   '<button class="btn amber" onclick="saveBuild()">Save build</button>';
 }
 function cbSet(k,v){CB[k]=v; if(k==='brand'){const b=brandOf(v);CB.model=b.models[0];} render();}
-function saveBuild(){
+function cbAddPhoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{CB.photos=CB.photos||[];CB.photos.push(r.result);render()};r.readAsDataURL(f)}
+function cbRmPhoto(i){CB.photos.splice(i,1);render()}
+async function saveBuild(){
   const u=S.users[S.me];u.garage=u.garage||[];
   const isNew=CBI<0;const name=CB2name(CB);
   const b=brandOf(CB.brand);
+  if(CLOUD&&CB.photos&&CB.photos.length){
+    toast('Uploading photos…');const urls=[];
+    for(const p of CB.photos){if(typeof p==='string'&&p.startsWith('http')){urls.push(p);continue;}
+      try{const blob=await(await fetch(p)).blob();const url=await cloudUpload(blob);if(url)urls.push(url);}catch(e){}}
+    CB.photos=urls;
+  }
   if(isNew){CB.id='v'+Date.now();u.garage.push(Object.assign({},CB));
     if(u.garage.length===1&&!u.master)award('first_build');
     if(!u.master){u.xp=(u.xp||0)+XP_PER_VEHICLE;}
