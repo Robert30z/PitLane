@@ -379,6 +379,13 @@ const STRIPE={pitpass:'',boost:'',links:{/* 'm1':'https://buy.stripe.com/xxx' */
 function stripeLinkFor(m){return (m&&m.stripe)||STRIPE.links[m&&m.id]||'';}
 const HUES={cars:[215,255],moto:[350,20],atv:[95,140],water:[190,215],parts:[35,55]};
 const SHOTS=['Front 3/4','Rear 3/4','Engine bay','Odometer','VIN plate','Interior'];
+/* Parts Department — sub-categories + part-specific photo set */
+const PARTCATS=[['engine','Engines'],['turbo','Turbo & Boost'],['drivetrain','Clutch & Drivetrain'],
+  ['suspension','Suspension'],['wheels','Wheels & Rims'],['tires','Tires'],['brakes','Brakes'],
+  ['exhaust','Exhaust'],['ecu','ECU & Electronics'],['body','Body & Aero'],['interior','Interior'],['misc','Other']];
+const partLab=k=>{const p=PARTCATS.find(c=>c[0]===k);return p?p[1]:'Part'};
+const PART_SHOTS=['Overall shot','Close-up detail','Part # / markings','Wear & flaws'];
+const PART_CONDS=['new','like new','used — working','needs rebuild'];
 
 /* ============ RANKS — 10 prestiges x 30 levels + MASTER PRESTIGE ============ */
 const MAXLVL=30;
@@ -610,7 +617,10 @@ function art(l,label){
 function go(name,arg){view={name,arg};render();window.scrollTo(0,0)}
 function setTab(t){tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
 function render(){
-  if(!S.me&&!['auth-welcome','auth-signup','auth-verify','auth-login','auth-check','auth-reset'].includes(view.name))view={name:'auth-welcome'};
+  // guests can browse the market, events, listings, profiles and merch —
+  // auth only gates DOING things (sell, message, RSVP, PRESTIGE…)
+  if(!S.me&&!['auth-welcome','auth-signup','auth-verify','auth-login','auth-check','auth-reset','tab','listing','user','merch'].includes(view.name))view={name:'auth-welcome'};
+  if(!S.me&&view.name==='tab'&&(tab==='chat'||tab==='profile'))return APP.innerHTML=shell(vGuestGate(tab),true);
   const v=view.name;
   if(v==='auth-welcome')return APP.innerHTML=vWelcome();
   if(v==='auth-signup')return APP.innerHTML=vSignup();
@@ -631,7 +641,8 @@ function render(){
 function shell(inner,withNav){
   return '<header class="topbar"><div class="logo"><b>PIT<em>LANE</em></b><span class="chq"></span></div>'+
   '<div style="flex:1"></div>'+(withNav
-    ?'<button class="lockbtn" onclick="enterPrestige()"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>PRESTIGE</button>'
+    ?(S.me?'':'<button class="lockbtn" style="margin-right:8px;border-color:var(--amber);color:var(--amber)" onclick="go(\'auth-welcome\')">SIGN IN</button>')+
+     '<button class="lockbtn" onclick="enterPrestige()"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>PRESTIGE</button>'
     :'<span class="eyebrow">launch season</span>')+'</header>'+
   '<main class="screen">'+inner+'</main>'+(withNav?navHTML():'');
 }
@@ -644,6 +655,24 @@ function navHTML(){
 }
 
 /* =================== AUTH =================== */
+/* gate an action (not a view): returns true if the user still needs to sign in */
+function needAuth(msg){
+  if(S.me)return false;
+  toast(msg||'Create your free account to do that.');
+  go('auth-welcome');return true;
+}
+function guestBrowse(){tab='market';view={name:'tab'};render();window.scrollTo(0,0)}
+function vGuestGate(t){
+  const what=t==='chat'
+    ?['Pit radio','Your conversations with buyers and sellers live here.']
+    :['Your profile','Your garage, rank, reviews and listings live here.'];
+  return '<div class="empty" style="padding:48px 18px">'+
+  '<div class="chq" style="width:56px;margin:0 auto 18px"></div>'+
+  '<h2 class="disp" style="font-size:24px;color:var(--text)">'+what[0]+'</h2>'+
+  '<p style="margin:10px auto 22px;max-width:34ch">'+what[1]+' Join the grid — it\'s free.</p>'+
+  '<button class="btn" style="max-width:280px;margin:0 auto" onclick="go(\'auth-signup\')">Create account</button>'+
+  '<button class="btn ghost" style="max-width:280px;margin:10px auto 0" onclick="go(\'auth-login\')">Log in</button></div>';
+}
 function vWelcome(){
   return '<div class="auth"><div class="glow"></div>'+
   '<div class="chq" style="width:64px;margin-bottom:22px"></div>'+
@@ -653,6 +682,7 @@ function vWelcome(){
   '<button class="btn" onclick="go(\'auth-signup\')">Create account</button>'+
   (CLOUD?'<button class="btn ghost" style="margin-top:10px" onclick="go(\'auth-login\')">Log in</button>'
         :'<button class="btn ghost" style="margin-top:10px" onclick="demoLogin()">Enter as Trippzy — Founder</button>')+
+  '<button class="btn line" style="margin-top:10px" onclick="guestBrowse()">Just looking — browse the market</button>'+
   '<p class="hint" style="text-align:center;margin-top:22px">'+(CLOUD?'Live · real accounts · your data syncs everywhere':'Local demo — data lives on this device only')+'</p></div>';
 }
 function vLogin(){
@@ -770,7 +800,9 @@ function demoLogin(){S.me='trippzy';save();tab='market';view={name:'tab'};if(typ
 function vMarket(){
   const q=(S._q||'').toLowerCase(),cat=S._cat||'all';
   const pmin=+(S._pmin||0)||0,pmax=+(S._pmax||0)||Infinity;
+  const pcat=S._pcat||'all';
   let ls=S.listings.filter(l=>(cat==='all'||l.cat===cat)
+    &&(cat!=='parts'||pcat==='all'||l.part===pcat)
     &&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q))
     &&(+l.price>=pmin&&+l.price<=pmax)
     &&(!isFlagged(l.id)||l.seller===S.me));
@@ -789,7 +821,9 @@ function vMarket(){
   (saved.length?'<div class="chips">'+saved.map((s,i)=>{const cnt=matchCount(s);
     return '<button class="chip" onclick="runSaved('+i+')">🔖 '+esc(s.q||CATS.find(c=>c[0]===s.cat)[1])+(cnt?' <span style="color:var(--amber)">'+cnt+'</span>':'')+' <span onclick="event.stopPropagation();rmSaved('+i+')" style="opacity:.6">✕</span></button>';
   }).join('')+'</div>':'')+
-  '<div class="chips">'+CATS.map(([k,lab])=>'<button class="chip '+(cat===k?'on':'')+'" onclick="S._cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
+  '<div class="chips">'+CATS.map(([k,lab])=>'<button class="chip '+(cat===k?'on':'')+'" onclick="S._cat=\''+k+'\';S._pcat=\'all\';render()">'+lab+'</button>').join('')+'</div>'+
+  (cat==='parts'?'<div class="chips" style="margin-top:-4px">'+[['all','All parts']].concat(PARTCATS).map(([k,lab])=>
+    '<button class="chip '+(pcat===k?'on':'')+'" style="font-size:12px" onclick="S._pcat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>':'')+
   '<button class="card" style="width:100%;text-align:left;padding:13px 15px;margin-bottom:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(100deg,rgba(232,54,45,.14),rgba(242,179,61,.08));border-color:rgba(242,179,61,.35)" onclick="go(\'merch\')">'+
   '<span style="font-size:26px">🏁</span><div style="flex:1"><b>Official PitLane Merch</b><div class="hint">Tees, caps, hoodies — rep the scene</div></div><span style="color:var(--amber)">Shop ›</span></button>'+
   (feat.length?'<div class="shead"><h2><s>Featured</s> — Pole position</h2><span class="badge f">BOOSTED</span></div>'+
@@ -799,7 +833,7 @@ function vMarket(){
     :'<div class="empty">Nothing in this lane yet.<br>Be the first to list.</div>');
 }
 function matchCount(s){const q=(s.q||'').toLowerCase();return S.listings.filter(l=>(s.cat==='all'||l.cat===s.cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q))).length}
-function saveSearch(){const u=S.users[S.me];u.saved=u.saved||[];const s={q:S._q||'',cat:S._cat||'all'};
+function saveSearch(){if(needAuth('Create your free account to save searches.'))return;const u=S.users[S.me];u.saved=u.saved||[];const s={q:S._q||'',cat:S._cat||'all'};
   if(u.saved.some(x=>x.q===s.q&&x.cat===s.cat))return toast('Already saved.');
   u.saved.unshift(s);save();render();toast('Search saved. You\'ll see match counts here 🔖');}
 function runSaved(i){const s=S.users[S.me].saved[i];S._q=s.q;S._cat=s.cat;render();}
@@ -810,7 +844,7 @@ function cardHTML(l){
   (l.sold?'<span class="badge" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;letter-spacing:.08em">SOLD</span>'
     :(l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':''))+'</div>'+
   '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
-  '<div class="meta">'+esc(l.loc)+' · '+(u.verified?'<span style="color:var(--green)">✓</span> ':'')+nn(u)+'</div></div></button>';
+  '<div class="meta">'+(l.cat==='parts'?'🔧 '+esc(partLab(l.part))+' · ':'')+esc(l.loc)+' · '+(u.verified?'<span style="color:var(--green)">✓</span> ':'')+nn(u)+'</div></div></button>';
 }
 
 /* =================== MERCH STORE =================== */
@@ -836,6 +870,7 @@ function orderRow(o,forMaster){
   (forMaster?'<div class="hint">buyer: '+nn(b)+' · '+esc(o.status||'new')+'</div>':'<div class="hint">'+esc(o.status||'placed')+'</div>')+'</div>';
 }
 function buyMerch(id){
+  if(needAuth('Create your free account to order merch.'))return;
   const m=(S.merch||[]).find(x=>x.id===id);if(!m)return;
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
   ov.innerHTML='<div class="sheet"><div style="font-size:56px;text-align:center">'+(m.emoji||'🏁')+'</div>'+
@@ -887,7 +922,8 @@ function vListing(id){
   const l=S.listings.find(x=>x.id===id);if(!l)return '<div class="empty">Listing not found.</div>';
   const u=S.users[l.seller]||{nick:'?',first:'',last:'',verified:false,rating:0,sales:0},mine=l.seller===S.me;
   bumpView(l);
-  const shots=SHOTS.map((s,i)=>'<div class="lcard" style="flex:0 0 150px"><div class="ph">'+art(l,s)+'</div></div>').join('');
+  const isPart=l.cat==='parts',SH=isPart?PART_SHOTS:SHOTS;
+  const shots=SH.map((s,i)=>'<div class="lcard" style="flex:0 0 150px"><div class="ph">'+art(l,s)+'</div></div>').join('');
   return '<button class="back" onclick="setTab(\'market\')">&#8592; Market</button>'+
   (isFlagged(l.id)?'<div class="warn"><b>⚫ Black-flagged.</b> This listing was hidden by the PitLane crew after a report.'+(mine?' Contact the crew if you think this is a mistake.':'')+'</div>':'')+
   '<div class="card" style="overflow:hidden;margin-bottom:14px"><div style="aspect-ratio:16/10;position:relative">'+art(l)+
@@ -896,16 +932,21 @@ function vListing(id){
   '<div style="display:flex;align-items:flex-start;gap:10px"><div style="flex:1">'+
   '<div class="price" style="font-size:24px">'+fmt(l.price)+'</div>'+
   '<h1 style="font-size:18px;font-weight:700;margin-top:2px">'+esc(l.title)+'</h1>'+
-  '<p class="hint">'+esc(l.loc)+' · listed '+esc(l.posted)+' · <span class="badge cat">'+esc(CATS.find(c=>c[0]===l.cat)[1])+'</span></p></div></div>'+
+  '<p class="hint">'+esc(l.loc)+' · listed '+esc(l.posted)+' · <span class="badge cat">'+esc(isPart?'🔧 '+partLab(l.part):(CATS.find(c=>c[0]===l.cat)||['','Listing'])[1])+'</span></p></div></div>'+
   (mine?'<div class="hint" style="margin-top:6px">👁 <b>'+(l.views||0)+'</b> '+((l.views||0)===1?'view':'views')+' · '+(l.boosted?'boosted — top of the grid':'not boosted')+'</div>':'')+
-  '<div class="shead"><h2>Required shots</h2><span class="badge v">✓ 6 / 6 VERIFIED SET</span></div>'+
+  '<div class="shead"><h2>Required shots</h2><span class="badge v">✓ '+SH.length+' / '+SH.length+' VERIFIED SET</span></div>'+
   '<div class="featrow">'+shots+'</div>'+
-  '<p class="hint">Every PitLane listing requires these six real photos — no stock images allowed.</p>'+
+  '<p class="hint">Every PitLane listing requires these '+(isPart?'four':'six')+' real photos — no stock images allowed.</p>'+
   '<div class="shead"><h2>Spec sheet</h2></div>'+
-  '<table class="spec"><tr><td>VIN / Serial</td><td>'+maskVIN(esc(l.vin))+'</td></tr>'+
-  '<tr><td>Miles</td><td>'+(l.miles?l.miles.toLocaleString():'—')+'</td></tr>'+
-  '<tr><td>Title</td><td style="text-transform:capitalize">'+esc(l.titleStatus)+'</td></tr></table>'+
-  '<div class="shead"><h2>Mods &amp; work done</h2></div>'+
+  (isPart
+    ?'<table class="spec"><tr><td>Part type</td><td>'+esc(partLab(l.part))+'</td></tr>'+
+     '<tr><td>Condition</td><td style="text-transform:capitalize">'+esc(l.cond||'used')+'</td></tr>'+
+     '<tr><td>Fits</td><td>'+esc(l.fitment||'—')+'</td></tr>'+
+     '<tr><td>Part / serial #</td><td>'+esc(l.vin||'N/A')+'</td></tr></table>'
+    :'<table class="spec"><tr><td>VIN / Serial</td><td>'+maskVIN(esc(l.vin))+'</td></tr>'+
+     '<tr><td>Miles</td><td>'+(l.miles?l.miles.toLocaleString():'—')+'</td></tr>'+
+     '<tr><td>Title</td><td style="text-transform:capitalize">'+esc(l.titleStatus)+'</td></tr></table>')+
+  '<div class="shead"><h2>'+(isPart?'Specs &amp; details':'Mods &amp; work done')+'</h2></div>'+
   '<ul style="padding-left:20px;color:#C6CDD9;font-size:14.5px;display:grid;gap:6px">'+
   l.mods.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul>'+
   '<div class="shead"><h2>Seller\'s words</h2></div><p style="color:#C6CDD9;font-size:14.5px;max-width:60ch">'+esc(l.desc)+'</p>'+
@@ -937,6 +978,7 @@ function markSold(lid){const l=S.listings.find(x=>x.id===lid);l.sold=!l.sold;
   save();if(CLOUD)cloudUpdateListing(l);
   render();toast(l.sold?'Marked SOLD 🏁 — buyers can now review you.':'Relisted.');}
 function msgSeller(lid){
+  if(needAuth('Create your free account to message the seller.'))return;
   const l=S.listings.find(x=>x.id===lid);
   let t=S.threads.find(t=>t.listing===lid&&t.users.includes(S.me));
   // deterministic id so both sides land in the same thread across devices
@@ -962,6 +1004,7 @@ function boostModal(lid){
     ov.remove();render();toast('Boosted — you\'re on pole. 🏁');award('boost')};
 }
 function reportModal(lid){
+  if(needAuth('Create your free account to report a listing.'))return;
   const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
   ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Black-flag this listing</h2>'+
   '<p style="color:var(--mut);font-size:13.5px;margin:8px 0 14px">Reports go straight to the PitLane crew. Sellers who fake photos or title status get removed.</p>'+
@@ -993,23 +1036,36 @@ function dismissReport(rid){
 }
 
 /* =================== SELL WIZARD =================== */
-function startWizard(){W={step:1,cat:'cars',photos:{},data:{}};go('wizard')}
+function startWizard(){if(needAuth('Create your free account to list something for sale.'))return;W={step:1,cat:'cars',photos:{},data:{}};go('wizard')}
 function wSet(k,v){W.data[k]=v}
 function vWizard(){
   const bar='<div class="steps">'+[1,2,3,4].map(i=>'<i class="'+(i<=W.step?'on':'')+'"></i>').join('')+'</div>';
   let body='';
+  const isPart=W.cat==='parts';
   if(W.step===1)body=
     '<h1 class="disp" style="font-size:24px">What are you selling?</h1>'+
     '<p class="hint" style="margin-bottom:14px">If it doesn\'t have an engine, it doesn\'t belong here.</p>'+
     '<div class="chips" style="flex-wrap:wrap">'+CATS.slice(1).map(([k,lab])=>
       '<button class="chip '+(W.cat===k?'on':'')+'" onclick="W.cat=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>'+
-    '<div class="field"><label for="w_title">Listing title</label><input id="w_title" placeholder="e.g. 2002 Honda S2000 AP1" value="'+esc(W.data.title||'')+'" oninput="wSet(\'title\',this.value)"></div>'+
-    '<div class="field"><label for="w_model">Short model tag — shows on the card</label><input id="w_model" placeholder="e.g. S2000" maxlength="14" value="'+esc(W.data.model||'')+'" oninput="wSet(\'model\',this.value)"></div>'+
+    (isPart?'<div class="field" style="margin-bottom:4px"><label>Part type</label></div>'+
+      '<div class="chips" style="flex-wrap:wrap">'+PARTCATS.map(([k,lab])=>
+      '<button class="chip '+(W.part===k?'on':'')+'" style="font-size:12px" onclick="W.part=\''+k+'\';render()">'+lab+'</button>').join('')+'</div>':'')+
+    '<div class="field"><label for="w_title">Listing title</label><input id="w_title" placeholder="'+(isPart?'e.g. Volk TE37 18x9.5 +22 5x114.3 (set of 4)':'e.g. 2002 Honda S2000 AP1')+'" value="'+esc(W.data.title||'')+'" oninput="wSet(\'title\',this.value)"></div>'+
+    (isPart?'<div class="field"><label for="w_fit">Fits — make / model / years</label><input id="w_fit" placeholder="e.g. Honda Civic EK 96-00, or Universal" value="'+esc(W.data.fitment||'')+'" oninput="wSet(\'fitment\',this.value)"></div>':'')+
+    '<div class="field"><label for="w_model">Short model tag — shows on the card</label><input id="w_model" placeholder="'+(isPart?'e.g. TE37':'e.g. S2000')+'" maxlength="14" value="'+esc(W.data.model||'')+'" oninput="wSet(\'model\',this.value)"></div>'+
     '<div class="row2"><div class="field"><label for="w_price">Price (USD)</label><input id="w_price" inputmode="numeric" placeholder="15000" value="'+esc(W.data.price||'')+'" oninput="wSet(\'price\',this.value)"></div>'+
     '<div class="field"><label for="w_loc">City, State</label><input id="w_loc" placeholder="Mesa, AZ" value="'+esc(W.data.loc||'')+'" oninput="wSet(\'loc\',this.value)"></div></div>'+
     '<button class="btn" onclick="wNext1()">Next — legit check</button>';
-  if(W.step===2)body=
-    '<h1 class="disp" style="font-size:24px">Legit check</h1>'+
+  if(W.step===2)body=isPart
+    ?'<h1 class="disp" style="font-size:24px">Legit check</h1>'+
+    '<p class="hint" style="margin-bottom:14px">Real part numbers and honest condition keep the grid clean. Fakes = permanent black flag.</p>'+
+    '<div class="field"><label for="w_vin">Part / serial number — leave blank if none</label>'+
+    '<input id="w_vin" class="mono" placeholder="e.g. casting or serial number" value="'+esc(W.data.vin||'')+'" oninput="wSet(\'vin\',this.value)"></div>'+
+    '<div class="field"><label for="w_cond">Condition</label><select id="w_cond" onchange="wSet(\'cond\',this.value)">'+
+    PART_CONDS.map(o=>'<option '+(W.data.cond===o?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    '<button class="btn" onclick="wNext2()">Next — required photos</button>'+
+    '<button class="btn line" style="margin-top:10px" onclick="W.step=1;render()">Back</button>'
+    :'<h1 class="disp" style="font-size:24px">Legit check</h1>'+
     '<p class="hint" style="margin-bottom:14px">Buyers see the last 6 of the VIN only. Fake numbers = permanent black flag.</p>'+
     '<div class="field"><label for="w_vin">VIN / Serial number</label>'+
     '<div style="display:flex;gap:8px"><input id="w_vin" class="mono" placeholder="17 characters for road vehicles" value="'+esc(W.data.vin||'')+'" oninput="wSet(\'vin\',this.value)">'+
@@ -1021,10 +1077,11 @@ function vWizard(){
     '<button class="btn" onclick="wNext2()">Next — required photos</button>'+
     '<button class="btn line" style="margin-top:10px" onclick="W.step=1;render()">Back</button>';
   if(W.step===3){
+    const SH=isPart?PART_SHOTS:SHOTS,NEED=SH.length;
     const done=Object.keys(W.photos).length;
-    body='<h1 class="disp" style="font-size:24px">Six real shots</h1>'+
-    '<p class="hint" style="margin-bottom:14px">Taken by you, of the actual machine. This is what makes PitLane listings trustworthy — no stock photos, ever.</p>'+
-    '<div class="photoslots">'+SHOTS.map((s,i)=>{
+    body='<h1 class="disp" style="font-size:24px">'+(isPart?'Four real shots':'Six real shots')+'</h1>'+
+    '<p class="hint" style="margin-bottom:14px">Taken by you, of the actual '+(isPart?'part':'machine')+'. This is what makes PitLane listings trustworthy — no stock photos, ever.</p>'+
+    '<div class="photoslots">'+SH.map((s,i)=>{
       const p=W.photos[i];
       return '<div class="slot '+(p?'done':'')+'">'+(p&&p!=='demo'?'<img src="'+p+'" alt="">':'')+
       (p==='demo'?'<div class="art" style="background:linear-gradient(140deg,hsl(220 30% 24%),hsl(220 45% 10%))"><div class="stripes"></div></div>':'')+
@@ -1032,8 +1089,8 @@ function vWizard(){
       (p?'':'<span class="demo" onclick="W.photos['+i+']=\'demo\';render()">use demo shot</span>')+
       (p?'':'<input type="file" accept="image/*" capture="environment" onchange="slotFile(this,'+i+')" aria-label="'+s+'">')+
       '</div>'}).join('')+'</div>'+
-    '<p class="hint" style="margin:12px 0">'+done+' / 6 captured'+(done<6?' — all six are required to publish.':' — full set. ✓')+'</p>'+
-    '<button class="btn" '+(done<6?'disabled':'')+' onclick="W.step=4;render()">Next — mods &amp; story</button>'+
+    '<p class="hint" style="margin:12px 0">'+done+' / '+NEED+' captured'+(done<NEED?' — all '+(isPart?'four':'six')+' are required to publish.':' — full set. ✓')+'</p>'+
+    '<button class="btn" '+(done<NEED?'disabled':'')+' onclick="W.step=4;render()">Next — mods &amp; story</button>'+
     '<button class="btn line" style="margin-top:10px" onclick="W.step=2;render()">Back</button>';
   }
   if(W.step===4)body=
@@ -1047,7 +1104,9 @@ function vWizard(){
 }
 function wNext1(){
   const d=W.data;
-  if(!d.title||d.title.trim().length<6)return toast('Give it a real title — year, make, model.');
+  if(W.cat==='parts'&&!W.part)return toast('Pick a part type first.');
+  if(!d.title||d.title.trim().length<6)return toast(W.cat==='parts'?'Give it a real title — brand, part, size.':'Give it a real title — year, make, model.');
+  if(W.cat==='parts'&&!(d.fitment||'').trim())return toast('What does it fit? Put "Universal" if anything.');
   if(!d.model)return toast('Add the short model tag.');
   if(!d.price||isNaN(+d.price)||+d.price<=0)return toast('Enter a real asking price.');
   if(!d.loc)return toast('Where is it located?');
@@ -1066,6 +1125,11 @@ function decodeVIN(){
 }
 function wNext2(){
   const d=W.data;
+  if(W.cat==='parts'){
+    if(!(d.vin||'').trim())d.vin='N/A';
+    d.miles=0;d.titleStatus='n/a';if(!d.cond)d.cond=PART_CONDS[0];
+    W.step=3;render();return;
+  }
   if(!d.vin||d.vin.trim().length<5)return toast('VIN / serial is required — that\'s the legit check.');
   if(d.miles===undefined||d.miles==='')return toast('Enter miles (0 if it doesn\'t apply).');
   if(!d.titleStatus)d.titleStatus='clean';
@@ -1089,13 +1153,16 @@ async function publish(){
   const listing={id:'l'+Date.now(),seller:S.me,cat:W.cat,title:d.title.trim(),
     model:(d.model||'').toUpperCase(),price:+d.price,loc:d.loc,miles:+(d.miles||0),
     titleStatus:d.titleStatus||'clean',vin:d.vin.trim().toUpperCase(),
+    part:W.cat==='parts'?(W.part||'misc'):null,
+    fitment:W.cat==='parts'?(d.fitment||'').trim():null,
+    cond:W.cat==='parts'?(d.cond||PART_CONDS[0]):null,
     mods:(d.mods||'').split('\n').map(s=>s.trim()).filter(Boolean),
     desc:d.desc||'',boosted:false,hue:h1+Math.floor(Math.random()*(h2-h1)),
     photos:real.length?real:null,posted:'Jul 2026'};
   S.listings.unshift(listing);save();
   if(CLOUD)await cloudPublishListing(listing);
   award('first_listing');award('lister');
-  if(realCount>=6)award('full_set');
+  if(realCount>=(W.cat==='parts'?PART_SHOTS.length:6))award('full_set');
   W=null;S._cat='all';S._q='';setTab('market');
   toast('Live on the grid. Boost it for free while launch season lasts ★');
 }
@@ -1117,9 +1184,10 @@ function vEvents(){
     '<button class="btn sm '+(going?'ghost':'')+'" onclick="rsvp(\''+ev.id+'\')">'+(going?'✓ You\'re in':'RSVP — I\'m pulling up')+'</button>'+
     '<span class="hint">'+(ev.going.length+(going?0:0))+' going</span></div></div></div>';
   }).join('')+
-  '<button class="btn ghost" style="margin-top:6px" onclick="go(\'event-new\')">+ Host an event</button>';
+  '<button class="btn ghost" style="margin-top:6px" onclick="if(!needAuth(\'Create your free account to host an event.\'))go(\'event-new\')">+ Host an event</button>';
 }
 function rsvp(id){
+  if(needAuth('Create your free account to RSVP.'))return;
   const ev=S.events.find(e=>e.id===id);
   const i=ev.going.indexOf(S.me);
   if(i>=0){ev.going.splice(i,1);toast('RSVP pulled.');if(CLOUD)cloudDel('rsvp',id+':'+S.me);}
@@ -1382,7 +1450,7 @@ const WMI={'1HG':'Honda','2HG':'Honda','JHM':'Honda','19U':'Acura','JH4':'Acura'
 const VINYEAR={'A':2010,'B':2011,'C':2012,'D':2013,'E':2014,'F':2015,'G':2016,'H':2017,'J':2018,'K':2019,'L':2020,'M':2021,'N':2022,'P':2023,'R':2024,'S':2025,'T':2026,'1':2001,'2':2002,'3':2003,'4':2004,'5':2005,'6':2006,'7':2007,'8':2008,'9':2009};
 
 /* ---- gate ---- */
-function enterPrestige(){ if(unlocked){world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0)} else go('gate'); }
+function enterPrestige(){ if(needAuth('PRESTIGE is for members — create your free account first.'))return; if(unlocked){world='prestige';ptab='home';view={name:'prestige'};render();window.scrollTo(0,0)} else go('gate'); }
 function exitPrestige(){ world='market';tab='market';view={name:'tab'};render();window.scrollTo(0,0); }
 function doGate(){
   const p=$('#gatepw').value;
@@ -2395,7 +2463,11 @@ async function cloudBoot(){
   try{const {data}=await sb.auth.getSession();
     if(data.session){await cloudLoadMe();await cloudLoadShared();cloudRealtime();
       tab='market';view={name:'tab'};openDeep&&openDeep();askPush();}
-    else{view={name:'auth-welcome'};}
+    else{
+      // no session → GUEST mode: browse the live market without an account
+      S.me=null;await cloudLoadShared();cloudRealtime();
+      tab='market';if(view.name!=='auth-reset')view={name:'tab'};openDeep&&openDeep();
+    }
   }catch(e){console.warn('cloudBoot',e)}
   render();
 }
@@ -2410,16 +2482,16 @@ if(window.supabase&&window.supabase.createClient){
   cloudReady();
   // hydrate from the last-synced local cache so an offline/slow launch shows real data (not a blank grid)
   const cached=(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){return null}})();
-  if(cached&&cached.me&&cached.users&&cached.users[cached.me]){
+  if(cached&&cached.users&&(!cached.me||cached.users[cached.me])){
     S=cached;S.threads=S.threads||[];S.merch=S.merch||[];S.orders=S.orders||[];S.reports=S.reports||[];S.flags=S.flags||{};
     tab='market';view={name:'tab'};openDeep();render();
   }else{
     S={me:null,users:{},listings:[],events:[],clans:[],queue:[],challenges:[],announcements:[],paddockChat:[],threads:[],merch:[],orders:[],notifs:[],reports:[],flags:{},clubPass:'redline',pno:1};
-    view={name:'auth-welcome'};render();
+    tab='market';view={name:'tab'};render();
   }
   cloudBoot();
   // reconcile when connectivity returns
-  window.addEventListener('online',()=>{if(CLOUD&&S.me){cloudLoadShared().then(()=>render());toast('Back online — syncing 🏁')}});
+  window.addEventListener('online',()=>{if(CLOUD){cloudLoadShared().then(()=>render());toast('Back online — syncing 🏁')}});
 }else{
   // LOCAL DEMO MODE (offline / artifact preview)
   load();
