@@ -451,6 +451,7 @@ function award(mid){
     if(after>before)toast('LEVEL UP — '+after+' · '+titleOf(after)+'  (+'+m.xp+' XP · '+m.t+')');
     else toast('+'+m.xp+' XP — '+m.t);
   },700);
+  try{opsCheck()}catch(e){}
 }
 function prestigeUp(){
   const u=S.users[S.me];
@@ -614,8 +615,23 @@ function art(l,label){
 }
 
 /* =================== RENDER CORE =================== */
-function go(name,arg){view={name,arg};render();window.scrollTo(0,0)}
-function setTab(t){tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
+/* phone back-gesture support: every navigation pushes a history entry;
+   back pops one level (sub-view → tab → market → paddock home → market) */
+let _navLock=false;
+function pushNav(){if(_navLock)return;try{history.pushState({pl:1},'')}catch(e){}}
+window.addEventListener('popstate',()=>{
+  _navLock=true;
+  try{
+    if(world==='prestige'){
+      if(ptab!=='home'){ptab='home';view={name:'prestige'};render();}
+      else exitPrestige();
+    }else if(view.name!=='tab'){view={name:'tab'};render();}
+    else if(tab!=='market'){tab='market';render();}
+  }catch(e){}
+  _navLock=false;window.scrollTo(0,0);
+});
+function go(name,arg){pushNav();view={name,arg};render();window.scrollTo(0,0)}
+function setTab(t){pushNav();tab=t;view={name:'tab'};render();window.scrollTo(0,0)}
 function render(){
   // guests can browse the market, events, listings, profiles and merch —
   // auth only gates DOING things (sell, message, RSVP, PRESTIGE…)
@@ -1412,7 +1428,41 @@ const CARBRANDS=[
  {b:'Kawasaki',t:'moto',c:'#3FA535',models:['Ninja ZX-6R','Ninja ZX-10R','Ninja H2','SX-R'],emblems:['Ninja','H2'],title:'Team Green'},
  {b:'Suzuki',t:'moto',c:'#003DA5',models:['GSX-R600','GSX-R750','GSX-R1000','Hayabusa'],emblems:['GSX-R','Busa'],title:'Gixxer'},
  {b:'Ducati',t:'moto',c:'#CD1B24',models:['Panigale V2','Panigale V4','Monster','Streetfighter'],emblems:['V4','Corse'],title:'Ducatista'},
- {b:'Honda Moto',t:'moto',c:'#E8362D',models:['CBR600RR','CBR1000RR','Grom','Ruckus'],emblems:['CBR','Fireblade'],title:'HRC'}
+ {b:'Honda Moto',t:'moto',c:'#E8362D',models:['CBR600RR','CBR1000RR','Grom','Ruckus'],emblems:['CBR','Fireblade'],title:'HRC'},
+ {b:'Hyundai',t:'car',c:'#002C5F',models:['Elantra N','Veloster N','Genesis Coupe 3.8','Genesis Coupe 2.0T','Tiburon GT','Sonata N Line','Kona N'],emblems:['N','N Line','2.0T'],title:'N Gang'},
+ {b:'Genesis',t:'car',c:'#9D8A68',models:['G70 3.3T','G70 2.0T','G80 Sport','GV70 3.5T','Coupe 3.8'],emblems:['3.3T','Sport','G70'],title:'Seoul Royalty'},
+ {b:'Kia',t:'car',c:'#05141F',models:['Stinger GT','Stinger GT2','K5 GT','Forte GT','EV6 GT'],emblems:['GT','Stinger','GT-Line'],title:'Tiger Nose'},
+ {b:'Infiniti',t:'car',c:'#1F1F1F',models:['G35 Coupe','G35 Sedan','G37 Coupe','Q50 Red Sport','Q60 Red Sport','FX35'],emblems:['VQ','Red Sport','G35'],title:'VQ Nation'},
+ {b:'Lexus GS',t:'car',c:'#8A8D8F',models:['GS300','GS400','LS400','GS-F'],emblems:['V8','GS'],title:'VIP Style'},
+ {b:'Scion',t:'car',c:'#5A6472',models:['FR-S','tC','xB','iM'],emblems:['FR-S','TC'],title:'Scion Life'},
+ {b:'Datsun',t:'car',c:'#B54A32',models:['240Z','260Z','280Z','510','620 Pickup'],emblems:['240Z','L28'],title:'Zed Head'},
+ {b:'Pontiac',t:'car',c:'#C41E3A',models:['GTO','Firebird Trans Am','G8 GT','Fiero','Solstice GXP'],emblems:['GTO','Trans Am'],title:'Poncho Power'},
+ {b:'Buick',t:'car',c:'#31353D',models:['Grand National','GNX','Regal T-Type'],emblems:['GNX','Turbo 6'],title:'Dark Side'},
+ {b:'Cadillac',t:'car',c:'#6E1E2B',models:['CTS-V','ATS-V','CT4-V Blackwing','CT5-V Blackwing'],emblems:['V','Blackwing'],title:'V Society'},
+ {b:'GMC',t:'car',c:'#B0141C',models:['Syclone','Typhoon','Sierra AT4'],emblems:['Syclone','4.3T'],title:'Boosted Truck'},
+ {b:'Jeep',t:'car',c:'#3E5A3C',models:['Grand Cherokee SRT','Trackhawk','Wrangler Rubicon','Cherokee XJ'],emblems:['SRT','Trackhawk','4x4'],title:'Trail Rated'},
+ {b:'RAM',t:'car',c:'#8B1A1A',models:['1500 TRX','SRT-10','2500 Cummins'],emblems:['TRX','HEMI','Cummins'],title:'Truck Mafia'},
+ {b:'Chrysler',t:'car',c:'#2B3A4A',models:['300 SRT8','300C','Crossfire SRT-6'],emblems:['SRT8','300'],title:'Imported From Detroit'},
+ {b:'Jaguar',t:'car',c:'#0C3B2E',models:['F-Type R','XE SV Project 8','XJR'],emblems:['R','SVR'],title:'Big Cat'},
+ {b:'Land Rover',t:'car',c:'#005A2B',models:['Defender 110','Range Rover Sport SVR','Discovery'],emblems:['SVR','4x4'],title:'Expedition'},
+ {b:'Volvo',t:'car',c:'#003057',models:['850R','S60 Polestar','V70R','240 Turbo'],emblems:['R','Polestar'],title:'Brick Squad'},
+ {b:'Alfa Romeo',t:'car',c:'#A4232B',models:['Giulia Quadrifoglio','4C','GTV6'],emblems:['QV','Quadrifoglio'],title:'Cuore Sportivo'},
+ {b:'MINI',t:'car',c:'#161616',models:['Cooper S','JCW','Cooper S Classic'],emblems:['JCW','S'],title:'Go-Kart Feel'},
+ {b:'Lotus',t:'car',c:'#204D34',models:['Elise','Exige','Evora','Emira'],emblems:['Elise','Lightweight'],title:'Simplify'},
+ {b:'Ferrari',t:'car',c:'#D40000',models:['360 Modena','F430','458 Italia','488 GTB','F355'],emblems:['458','Cavallino'],title:'Tifosi'},
+ {b:'Lamborghini',t:'car',c:'#DDB321',models:['Gallardo','Huracán','Aventador','Urus'],emblems:['V10','Toro'],title:'Raging Bull'},
+ {b:'McLaren',t:'car',c:'#FF8000',models:['570S','600LT','720S','765LT'],emblems:['LT','720'],title:'Papaya'},
+ {b:'Aston Martin',t:'car',c:'#00594F',models:['Vantage','DB11','DBS'],emblems:['AMR','V12'],title:'Gentleman Racer'},
+ {b:'Harley-Davidson',t:'moto',c:'#F16A22',models:['Sportster S','Fat Bob','Road Glide','V-Rod'],emblems:['V-Twin','HD'],title:'Bar & Shield'},
+ {b:'BMW Motorrad',t:'moto',c:'#1C69D4',models:['S1000RR','M1000RR','R1250GS'],emblems:['S1000','M RR'],title:'Doppel-R'},
+ {b:'KTM',t:'moto',c:'#FF6600',models:['Duke 390','Duke 890','RC 390','450 SX-F'],emblems:['Duke','Ready2Race'],title:'Orange Brigade'},
+ {b:'Triumph',t:'moto',c:'#2A2D30',models:['Street Triple RS','Speed Triple','Daytona 675'],emblems:['Triple','RS'],title:'Hinckley'},
+ {b:'Aprilia',t:'moto',c:'#B31E23',models:['RS 660','RSV4','Tuono V4'],emblems:['RSV4','V4'],title:'Noale Rocket'},
+ {b:'Indian',t:'moto',c:'#7A1B1B',models:['Scout Bobber','FTR 1200','Chief'],emblems:['FTR','Scout'],title:'War Bonnet'},
+ {b:'Can-Am',t:'moto',c:'#F3C300',models:['Maverick X3','Outlander 1000','Ryker'],emblems:['X3','Maverick'],title:'Dune Runner'},
+ {b:'Polaris',t:'moto',c:'#004E8C',models:['RZR Pro R','Sportsman 850','Slingshot'],emblems:['RZR','Pro R'],title:'Trail Boss'},
+ {b:'Sea-Doo',t:'moto',c:'#FFD100',models:['RXP-X 325','GTR 230','Spark Trixx'],emblems:['RXP','325'],title:'Wave Killer'},
+ {b:'Kawasaki Jet Ski',t:'moto',c:'#3FA535',models:['Ultra 310R','STX 160','SX-R 160'],emblems:['Ultra','310'],title:'Flat Water'}
 ];
 const RIMS=['Volk TE37','Enkei RPF1','BBS LM','Work Meister S1','Rotiform BLQ','HRE P101','Vossen CV3','Advan GT','Konig Hypergram','fifteen52 Tarmac','OZ Ultraleggera','Method MR305','American Racing','Sparco Assetto'];
 const RIMCOLORS=[['#B08D57','Bronze'],['#4A4E54','Gunmetal'],['#D4AF37','Gold'],['#C9CFD8','Silver'],['#1A1C20','Matte Black'],['#EDEFF2','White'],['#93999F','Polished'],['#2C6FB5','Blue']];
@@ -1445,6 +1495,123 @@ const SPOTS=[
  {id:'sp_yunque',name:'El Yunque',town:'Río Grande',desc:'Rainforest road pull-off.',xp:200,lat:18.2955,lng:-65.7900},
  {id:'sp_arecibo',name:'Cueva Ventana',town:'Arecibo',desc:'The cave window over the valley.',xp:200,lat:18.3419,lng:-66.7699}
 ];
+/* =================== SPEC OPS — tiered operations (MW2 Spec-Ops style) =================== */
+/* Auto-tracked missions. Clear an op → XP + some ops pay out exclusive calling
+   cards / emblems you can ONLY earn here. Tiers run ALPHA → DELTA like the
+   MW2 Spec Ops star ladder. */
+const OPS_CARDS=[
+ {id:'op_boot',name:'Boot Camp',css:'linear-gradient(120deg,#39B26B,#0d3a24 70%)',op:1},
+ {id:'op_hustler',name:'The Hustler',css:'linear-gradient(120deg,#F2B33D,#7a4a10 70%)',op:1},
+ {id:'op_wheelman',name:'Wheelman',css:'repeating-linear-gradient(-45deg,#E8362D 0 10px,#111418 10px 20px)',op:1},
+ {id:'op_legend',name:'Street Legend',css:'linear-gradient(120deg,#FFD34D,#E8362D 60%,#111 100%)',op:1}
+];
+const OPS=[
+ {tier:'ALPHA',name:'Welcome to the Grid',c:'#39B26B',ops:[
+  {id:'a1',t:'First Contact',d:'Message a seller from any listing',stat:'msgs',need:1,xp:150,stars:1},
+  {id:'a2',t:'Garage Registered',d:'Add your first vehicle to the garage',stat:'garage',need:1,xp:200,stars:1},
+  {id:'a3',t:'On The Record',d:'Publish your first listing',stat:'listings',need:1,xp:250,stars:1},
+  {id:'a4',t:'Pulling Up',d:'RSVP to a community event',stat:'rsvp',need:1,xp:150,stars:1,reward:{card:'op_boot',name:'Boot Camp calling card'}}
+ ]},
+ {tier:'BRAVO',name:'Make Your Name',c:'#2C6FB5',ops:[
+  {id:'b1',t:'Paddock Voice',d:'Post 5 messages in paddock chat',stat:'chat',need:5,xp:250,stars:1},
+  {id:'b2',t:'Crew Up',d:'Join or create a clan',stat:'clan',need:1,xp:300,stars:2},
+  {id:'b3',t:'Fleet Builder',d:'Keep 3 vehicles in your garage',stat:'garage',need:3,xp:400,stars:2},
+  {id:'b4',t:'Culture Scout',d:'Snap 3 Culture Run spots',stat:'spots',need:3,xp:450,stars:2,reward:{emblem:['SCOUT','#2C6FB5'],name:'SCOUT emblem'}}
+ ]},
+ {tier:'CHARLIE',name:'Prove It',c:'#F2B33D',ops:[
+  {id:'c1',t:'First Blood',d:'Win a host-confirmed race',stat:'wins',need:1,xp:500,stars:2},
+  {id:'c2',t:'Closer',d:'Sell something — mark a listing SOLD',stat:'sold',need:1,xp:400,stars:2},
+  {id:'c3',t:'Island Tour',d:'Snap 6 Culture Run spots',stat:'spots',need:6,xp:700,stars:3},
+  {id:'c4',t:'Hat Trick',d:'Win 3 confirmed races',stat:'wins',need:3,xp:800,stars:3,reward:{card:'op_hustler',name:'The Hustler calling card'}}
+ ]},
+ {tier:'DELTA',name:'Street Legend',c:'#E8362D',ops:[
+  {id:'d1',t:'Ten Deep',d:'Win 10 confirmed races',stat:'wins',need:10,xp:1200,stars:3,reward:{card:'op_wheelman',name:'Wheelman calling card'}},
+  {id:'d2',t:'Trophy Shelf',d:'Hold 3 trophies',stat:'trophies',need:3,xp:1000,stars:3},
+  {id:'d3',t:'Full Run',d:'Clear all 8 Culture Run spots',stat:'spots',need:8,xp:1500,stars:3,reward:{emblem:['LEGEND','#E8362D'],name:'LEGEND emblem'}},
+  {id:'d4',t:'Prestige Bound',d:'Reach Level 30',stat:'level',need:30,xp:0,stars:3,reward:{card:'op_legend',name:'Street Legend calling card'}}
+ ]}
+];
+function opStat(u,k){
+  const races=u.races||{wins:0,losses:0};
+  switch(k){
+    case 'listings': return Math.max(S.listings.filter(l=>l.seller===u.id).length,((u.completed||{}).first_listing?1:0));
+    case 'sold': return u.sales||0;
+    case 'msgs': return ((u.completed||{}).first_msg||0);
+    case 'rsvp': return ((u.completed||{}).rsvp||0);
+    case 'garage': return (u.garage||[]).length;
+    case 'wins': return races.wins||0;
+    case 'spots': return Object.keys(u.spotShots||{}).length;
+    case 'clan': return u.clan?1:0;
+    case 'chat': return S.paddockChat.filter(m=>m.from===u.id).length;
+    case 'trophies': return (u.trophies||[]).length;
+    case 'level': return u.master?MAXLVL:lvlOf(u.xp||0).l;
+  }
+  return 0;
+}
+function opsCheck(){
+  const u=S.me&&S.users[S.me];if(!u||u.master)return;
+  u.opsDone=u.opsDone||{};u.opCards=u.opCards||[];
+  let hit=false;
+  OPS.forEach(tier=>tier.ops.forEach(op=>{
+    if(u.opsDone[op.id])return;
+    if(opStat(u,op.stat)>=op.need){
+      u.opsDone[op.id]=Date.now();hit=true;
+      if(op.xp)u.xp=(u.xp||0)+op.xp;
+      if(op.reward){
+        if(op.reward.card&&u.opCards.indexOf(op.reward.card)<0)u.opCards.push(op.reward.card);
+        if(op.reward.emblem){u.unlockedEmblems=u.unlockedEmblems||[];
+          if(!u.unlockedEmblems.some(e=>e[0]===op.reward.emblem[0]))u.unlockedEmblems.push(op.reward.emblem);}
+      }
+      notify('🎖️ OP COMPLETE — '+op.t+(op.xp?' (+'+op.xp+' XP)':'')+(op.reward?' · '+op.reward.name+' UNLOCKED':''));
+      setTimeout(()=>toast('🎖️ OP COMPLETE — '+op.t+(op.reward?' · '+op.reward.name+' unlocked':'')),400);
+    }
+  }));
+  if(hit)save();
+}
+function opStars(n,c){let s='';for(let i=0;i<3;i++)s+='<span style="color:'+(i<n?c:'#3a3f4a')+'">★</span>';return s}
+function opsBanner(u){
+  const total=OPS.reduce((a,t)=>a+t.ops.length,0);
+  const done=OPS.reduce((a,t)=>a+t.ops.filter(o=>u.master||(u.opsDone&&u.opsDone[o.id])).length,0);
+  const pct=Math.round(done/total*100);
+  return '<button class="card" style="width:100%;text-align:left;padding:14px 16px;margin:12px 0 2px;'+
+  'background:linear-gradient(100deg,rgba(232,54,45,.16),rgba(11,13,16,.4));border-color:rgba(232,54,45,.45)" onclick="setPTab(\'ops\')">'+
+  '<div style="display:flex;align-items:center;gap:12px"><span style="font-size:26px">🎖️</span>'+
+  '<div style="flex:1;min-width:0"><b class="disp" style="font-size:17px;letter-spacing:.02em">SPEC OPS</b>'+
+  '<div class="hint">Clear operations — earn XP, exclusive cards &amp; emblems</div>'+
+  '<div style="background:rgba(255,255,255,.08);border-radius:4px;height:6px;margin-top:7px"><div style="width:'+pct+'%;height:100%;border-radius:4px;background:var(--red)"></div></div></div>'+
+  '<span class="mono" style="color:var(--amber);font-weight:800">'+done+'/'+total+'</span></div></button>';
+}
+function pOps(){
+  const u=S.users[S.me];u.opsDone=u.opsDone||{};
+  opsCheck();
+  const total=OPS.reduce((a,t)=>a+t.ops.length,0);
+  const done=OPS.reduce((a,t)=>a+t.ops.filter(o=>u.master||u.opsDone[o.id]).length,0);
+  return pBack()+
+  '<h1 class="disp" style="font-size:24px;margin:6px 0 2px">SPEC OPS</h1>'+
+  '<p class="hint" style="margin-bottom:6px">Operations clear themselves the moment you do the thing — XP pays out instantly, and some ops drop calling cards and emblems you can\'t get anywhere else.</p>'+
+  '<div class="card" style="padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">'+
+  '<b>Operations cleared</b><span class="mono" style="color:var(--amber);font-weight:800;font-size:18px">'+done+' / '+total+'</span></div>'+
+  OPS.map(tier=>{
+    const tDone=tier.ops.filter(o=>u.master||u.opsDone[o.id]).length;
+    return '<div class="shead" style="margin-top:14px"><h2 style="color:'+tier.c+'">'+tier.tier+' — '+esc(tier.name)+'</h2>'+
+    '<span class="badge" style="background:'+tier.c+'22;color:'+tier.c+'">'+tDone+'/'+tier.ops.length+'</span></div>'+
+    tier.ops.map(op=>{
+      const doneOp=u.master||!!u.opsDone[op.id];
+      const cur=Math.min(op.need,opStat(u,op.stat));
+      const pct=doneOp?100:Math.round(cur/op.need*100);
+      return '<div class="card" style="padding:13px 15px;margin-bottom:9px;'+(doneOp?'border-color:'+tier.c+'66':'')+'">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'+
+      '<div style="min-width:0"><b>'+(doneOp?'✅ ':'')+esc(op.t)+'</b><div class="hint">'+esc(op.d)+'</div></div>'+
+      '<div style="text-align:right;flex-shrink:0">'+opStars(op.stars,tier.c)+
+      (op.xp?'<div class="hint mono" style="color:var(--amber)">+'+op.xp+' XP</div>':'')+'</div></div>'+
+      '<div style="background:rgba(255,255,255,.07);border-radius:4px;height:7px;margin-top:9px"><div style="width:'+pct+'%;height:100%;border-radius:4px;background:'+tier.c+'"></div></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:5px"><span class="hint mono">'+(doneOp?'CLEARED':cur+' / '+op.need)+'</span>'+
+      (op.reward?'<span class="hint" style="color:'+(doneOp?tier.c:'var(--mut)')+'">🎁 '+esc(op.reward.name)+'</span>':'')+'</div>'+
+      '</div>';
+    }).join('');
+  }).join('');
+}
+
 /* Offline VIN helper — WMI (first 3) → make, position 10 → model year */
 const WMI={'1HG':'Honda','2HG':'Honda','JHM':'Honda','19U':'Acura','JH4':'Acura','JT2':'Toyota','JTD':'Toyota','4T1':'Toyota','5TD':'Toyota','JT4':'Toyota','JN1':'Nissan','1N4':'Nissan','JN8':'Nissan','JF1':'Subaru','JF2':'Subaru','4S3':'Subaru','JM1':'Mazda','1YV':'Mazda','JA3':'Mitsubishi','JA4':'Mitsubishi','1FA':'Ford','1FT':'Ford','1G1':'Chevrolet','1G4':'Buick','2G1':'Chevrolet','1B3':'Dodge','2C3':'Dodge','1C3':'Chrysler','WBA':'BMW','WBS':'BMW','4US':'BMW','WDB':'Mercedes-AMG','WDD':'Mercedes-AMG','WAU':'Audi','TRU':'Audi','WVW':'Volkswagen','3VW':'Volkswagen','WP0':'Porsche','WP1':'Porsche','JTH':'Lexus','5YJ':'Tesla'};
 const VINYEAR={'A':2010,'B':2011,'C':2012,'D':2013,'E':2014,'F':2015,'G':2016,'H':2017,'J':2018,'K':2019,'L':2020,'M':2021,'N':2022,'P':2023,'R':2024,'S':2025,'T':2026,'1':2001,'2':2002,'3':2003,'4':2004,'5':2005,'6':2006,'7':2007,'8':2008,'9':2009};
@@ -1471,9 +1638,11 @@ function vGate(){
 }
 
 /* ---- prestige shell / nav ---- */
-function setPTab(t){ptab=t;view={name:'prestige'};render();window.scrollTo(0,0)}
+function setPTab(t){pushNav();ptab=t;view={name:'prestige'};render();window.scrollTo(0,0);if(t==='ops')try{opsCheck()}catch(e){}}
+/* every prestige page that isn't the garage gets an explicit way back */
+function pBack(){return '<button class="back" onclick="setPTab(\'home\')">&#8592; Garage</button>'}
 function prestigeShell(){
-  const map={home:pHome,ranks:pRanks,chat:pChat,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR,shop:pShop,notifs:pNotifs};
+  const map={home:pHome,ranks:pRanks,chat:pChat,clans:pClans,map:pMap,admin:pAdmin,build:pBuild,edit:pEdit,qr:pQR,shop:pShop,notifs:pNotifs,ops:pOps};
   const inner=(map[ptab]||pHome)();
   const unread=(S.notifs||[]).some(n=>!n.read);
   const top='<header class="p-top"><div class="plogo">PIT<em>LANE</em> · <span style="color:var(--amber)">PADDOCK</span></div>'+
@@ -1527,9 +1696,14 @@ function unlockedCards(u){
   if(typeof isPro==='function'&&isPro(u))list=list.concat(PRO_CARDS);
   const seasonDone=typeof SEASON!=='undefined'&&SEASON.spots.every(s=>u.spotShots&&u.spotShots[s]);
   if(typeof SEASON!=='undefined'&&(u.master||(typeof isPro==='function'&&isPro(u))||seasonDone))list.push(SEASON.card);
+  // Spec-Ops exclusives — earned by clearing operations, master gets all
+  if(typeof OPS_CARDS!=='undefined'){
+    if(u.master)list=list.concat(OPS_CARDS);
+    else (u.opCards||[]).forEach(id=>{const c=OPS_CARDS.find(x=>x.id===id);if(c&&list.indexOf(c)<0)list.push(c);});
+  }
   return list;
 }
-function cardCss(u){const id=u.eqCard;const all=CARDS.concat(typeof PRO_CARDS!=='undefined'?PRO_CARDS:[],typeof SEASON!=='undefined'?[SEASON.card]:[]);
+function cardCss(u){const id=u.eqCard;const all=CARDS.concat(typeof PRO_CARDS!=='undefined'?PRO_CARDS:[],typeof SEASON!=='undefined'?[SEASON.card]:[],typeof OPS_CARDS!=='undefined'?OPS_CARDS:[]);
   const c=all.find(x=>x.id===id)||unlockedCards(u).slice(-1)[0]||CARDS[0];return c.css}
 function equipCard(id){S.users[S.me].eqCard=id;save();render();toast('Calling card equipped.')}
 
@@ -1618,11 +1792,14 @@ function pHome(){
   '<div class="shead"><h2>Trophy case</h2><span class="badge f">'+wl(u).w+'W · '+wl(u).l+'L</span></div>'+
   ((u.trophies&&u.trophies.length)?u.trophies.map(t=>'<div class="card" style="padding:11px 13px;margin-bottom:8px">🏆 <b>'+esc(t)+'</b></div>').join('')
     :'<div class="card empty" style="padding:26px">No trophies yet.<br>Win a host-confirmed race at an event.</div>')+
+  opsBanner(u)+
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">'+
   '<button class="btn ghost" onclick="setPTab(\'edit\')">Edit profile</button>'+
   '<button class="btn ghost" onclick="setPTab(\'clans\')">Clans</button>'+
   '<button class="btn ghost" onclick="setPTab(\'qr\')">My QR code</button>'+
-  '<button class="btn ghost" onclick="setPTab(\'ranks\')">Races</button></div>'+
+  '<button class="btn ghost" onclick="setPTab(\'ranks\')">Races</button>'+
+  '<button class="btn ghost" onclick="setPTab(\'map\')">🗺️ Live meet map</button>'+
+  '<button class="btn ghost" onclick="setPTab(\'ops\')">🎖️ Spec Ops</button></div>'+
   '<button class="btn ghost" style="margin-top:10px" onclick="shareProfile(\''+S.me+'\')">🔗 Share my profile (IG link + card)</button>'+
   '<button class="btn '+(isPro(u)?'ghost':'amber')+'" style="margin-top:10px" onclick="setPTab(\'shop\')">'+(isPro(u)?'✦ Pit Pass Pro — cosmetics':'✦ Get Pit Pass')+'</button>'+
   (u.master?'<button class="btn amber" style="margin-top:10px" onclick="setPTab(\'admin\')">👑 Master control panel</button>':'')+
@@ -1787,7 +1964,7 @@ function wl(u){const w=u.races.wins||0,l=u.races.losses||0,t=w+l;return{w,l,t,pc
 function pRanks(){
   const u=S.users[S.me],r=wl(u),mine=S.me;
   const myChallenges=S.challenges.filter(c=>c.from===mine||c.to===mine);
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Rank &amp; races</h1>'+
+  return pBack()+'<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Rank &amp; races</h1>'+
   rankCard(u,true)+
   '<div class="shead"><h2>Race record</h2><span class="badge f">'+r.pct+'% W/L</span></div>'+
   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
@@ -1953,7 +2130,7 @@ function showPass(eid){
 /* ---- clans ---- */
 function pClans(){
   const u=S.users[S.me],mine=u.clan?S.clans.find(c=>c.id===u.clan):null;
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Clans</h1>'+
+  return pBack()+'<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Clans</h1>'+
   (mine?'<div class="card clanrow" style="border-color:'+mine.color+'55"><span class="clantag" style="background:'+mine.color+'">'+esc(mine.tag)+'</span>'+
     '<div style="flex:1"><b>'+esc(mine.name)+'</b><div class="hint">'+mine.members.length+' members · you\'re in'+(mine.owner===u.id?' · OWNER':'')+'</div></div>'+
     '<button class="btn sm line" onclick="leaveClan()">Leave</button></div>':
@@ -2013,7 +2190,7 @@ function pMap(){
     return '<div class="pin '+(me?'me':'')+'" style="left:'+x.loc.x+'%;top:'+x.loc.y+'%" onclick="'+(me?'':'joinPin(\''+x.id+'\')')+'">'+
     '<div class="bub">'+(me?'⦿ ':'')+nn(x)+' <span style="color:var(--amber)">'+(x.master?'★':'L'+lvlOf(x.xp).l)+'</span></div><div class="stem"></div></div>';
   }).join('');
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Live meet map</h1>'+
+  return pBack()+'<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Live meet map</h1>'+
   '<p class="hint" style="margin-bottom:10px">Members who are visible show up here. Spot the scene, roll to a meet.</p>'+
   '<div class="mapwrap"><canvas id="mapcv"></canvas>'+pins+'</div>'+
   '<div class="mapctl"><div><b style="font-size:14px">Show me on the map</b><div class="hint">'+(u.loc.visible?'You\'re visible as '+esc(u.nick)+' · '+esc(u.loc.area):'You\'re hidden')+'</div></div>'+
@@ -2099,7 +2276,7 @@ function sendChallenge(uid){
 /* ---- paddock chat + master announcements ---- */
 function pChat(){
   const u=S.users[S.me];
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Paddock chat</h1>'+
+  return pBack()+'<h1 class="disp" style="font-size:22px;margin:6px 0 8px">Paddock chat</h1>'+
   (u.master?'<button class="btn amber sm" onclick="announceModal()" style="margin-bottom:12px">📣 Post an event announcement</button>':'')+
   (S.announcements.length?'<div class="shead"><h2>Announcements</h2></div>'+S.announcements.map(a=>{
     const host=S.users[a.from]||{nick:'?'};
@@ -2150,9 +2327,9 @@ function postAnnounce(){
 /* ---- admin (Master only) ---- */
 function pAdmin(){
   const me=S.users[S.me];
-  if(!me.master)return '<div class="empty">Master access only.</div>';
+  if(!me.master)return pBack()+'<div class="empty">Master access only.</div>';
   const pend=S.challenges.filter(c=>c.status!=='logged');
-  return '<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Master control</h1>'+
+  return pBack()+'<h1 class="disp" style="font-size:22px;margin:6px 0 4px">Master control</h1>'+
   '<p class="hint" style="margin-bottom:12px">Level anyone up or down, hand out prestige, and run the scene. Race results get confirmed by you at each event under <b>Races → Inspection + log a result</b>.</p>'+
   '<div class="launchnote">🏁 <b>Where results come from:</b> open <b>Races</b>, pick an event, and use <b>Inspection + log a result</b> to confirm who took the W. That\'s the only path to race XP — keeps randoms from ranking themselves up.</div>'+
   moderationHTML()+
@@ -2165,10 +2342,11 @@ function pAdmin(){
     return '<div class="card arow"><div class="ava" style="width:38px;height:38px;font-size:14px;flex:0 0 38px">'+esc(u.nick[0])+'</div>'+
     '<div style="flex:1;min-width:0"><b>'+nn(u)+'</b> '+(u.master?'<span class="badge masterbadge">M</span>':'')+
     '<div class="hint mono">'+esc(u.profileNo)+' · '+(u.master?'MASTER':'P'+u.prestige+' L'+l+' · '+(u.xp||0)+'xp')+'</div></div>'+
-    (u.master?'':'<div class="abtns"><button class="abtn dn" onclick="adminLevel(\''+u.id+'\',-1)">−</button>'+
-      '<button class="abtn up" onclick="adminLevel(\''+u.id+'\',1)">+</button>'+
-      '<button class="abtn pp" onclick="adminPrestige(\''+u.id+'\')">P+</button>'+
-      '<button class="abtn pp" onclick="adminMaster(\''+u.id+'\')" style="color:#FFD34D">★</button></div>')+'</div>';
+    (u.founder?'':'<div class="abtns">'+
+      (u.master?'':'<button class="abtn dn" onclick="adminLevel(\''+u.id+'\',-1)">−</button>'+
+        '<button class="abtn up" onclick="adminLevel(\''+u.id+'\',1)">+</button>'+
+        '<button class="abtn pp" onclick="adminPrestige(\''+u.id+'\')">P+</button>')+
+      '<button class="abtn pp" onclick="adminMaster(\''+u.id+'\')" style="color:#FFD34D" title="'+(u.master?'Remove master':'Grant master')+'">'+(u.master?'★−':'★')+'</button></div>')+'</div>';
   }).join('')+
   '<div class="shead"><h2>Club password</h2></div>'+
   '<div class="card" style="padding:14px"><p class="hint" style="margin-bottom:8px">Members need this to enter the paddock. Current: <b class="mono">'+esc(S.clubPass)+'</b></p>'+
@@ -2202,12 +2380,27 @@ function clearReports(lid){
   if(CLOUD)rs.forEach(r=>cloudDel('report',r.id));
   render();toast('Reports cleared for that listing.');
 }
+/* Admin rank actions can't write other users' profile rows (RLS + guard_master
+   freeze master server-side). They persist as founder-signed app_data 'rank'
+   rows instead — every client applies grants only when owner === FOUNDER_ID. */
+function cloudRank(uid){
+  if(!CLOUD)return;const u=S.users[uid];if(!u)return;
+  cloudPut('rank',uid,{id:uid,master:!!u.master,prestige:u.prestige||0,xp:u.xp||0,t:Date.now()});
+}
+function applyRank(d){
+  d=cleanRec(d);if(!d)return;const u=S.users[d.id];if(!u||u.founder)return;
+  u.master=!!d.master;
+  if(typeof d.prestige==='number')u.prestige=d.prestige;
+  if(typeof d.xp==='number')u.xp=d.xp;
+}
 function adminLevel(uid,dir){const u=S.users[uid];const cur=lvlOf(u.xp||0).l;
   const target=Math.min(MAXLVL,Math.max(1,cur+dir));
   let x=0;for(let i=1;i<target;i++)x+=need(i);u.xp=x;
-  save();render();toast(u.nick+' → level '+target);}
-function adminPrestige(uid){const u=S.users[uid];if((u.prestige||0)>=10){return adminMaster(uid);}u.prestige=(u.prestige||0)+1;u.xp=0;save();render();toast(u.nick+' → Prestige '+u.prestige);}
-function adminMaster(uid){const u=S.users[uid];u.master=!u.master;save();render();toast(u.nick+(u.master?' is now MASTER 👑':' master removed'));}
+  save();cloudRank(uid);render();toast(u.nick+' → level '+target);}
+function adminPrestige(uid){const u=S.users[uid];if((u.prestige||0)>=10){return adminMaster(uid);}u.prestige=(u.prestige||0)+1;u.xp=0;save();cloudRank(uid);render();toast(u.nick+' → Prestige '+u.prestige);}
+function adminMaster(uid){const u=S.users[uid];
+  if(u.founder)return toast('The founder crown is permanent. 👑');
+  u.master=!u.master;save();cloudRank(uid);render();toast(u.nick+(u.master?' is now MASTER 👑':' — master removed'));}
 function setPass(){const p=$('#newpass').value.trim();if(p.length<3)return toast('Too short.');S.clubPass=p;save();render();toast('Club password updated.');}
 function adminApprove(qid,ok){
   const item=S.queue.find(q=>q.id===qid);if(!item)return;const u=S.users[item.user];
@@ -2324,6 +2517,7 @@ function useGPS(){
 /* =================== SUPABASE CLOUD =================== */
 const SB_URL='https://mhuhdbtqjktrieszgefo.supabase.co';
 const SB_KEY='sb_publishable_XbMw9s9Dt1OWdpHEudgALg_3sQyyER_';
+const FOUNDER_ID='f7b56c55-781a-4025-8d11-8675fe08ce95'; // only rank grants signed by the founder count
 let sb=null,CLOUD=false,_saveTimer=null;
 function cloudReady(){try{if(!sb&&window.supabase&&window.supabase.createClient){sb=window.supabase.createClient(SB_URL,SB_KEY)}if(sb)CLOUD=true}catch(e){CLOUD=false}return CLOUD}
 function profileToUser(row,email){
@@ -2353,7 +2547,7 @@ async function cloudLoadShared(){
     const {data:evs}=await sb.from('events').select('data').order('created_at',{ascending:false});
     if(evs&&evs.length)S.events=evs.map(x=>x.data).filter(Boolean);
     // community: clans, chat, announcements, challenges
-    const {data:ad}=await sb.from('app_data').select('kind,data,created_at').order('created_at',{ascending:true});
+    const {data:ad}=await sb.from('app_data').select('kind,owner,data,created_at').order('created_at',{ascending:true});
     if(ad){
       S.clans=ad.filter(r=>r.kind==='clan').map(r=>r.data).filter(Boolean);
       S.paddockChat=ad.filter(r=>r.kind==='chat').map(r=>r.data).filter(Boolean);
@@ -2373,6 +2567,8 @@ async function cloudLoadShared(){
       S.flags={};ad.filter(r=>r.kind==='flag').forEach(r=>{const d=r.data;if(d&&d.listing)S.flags[d.listing]={by:d.by,t:d.t};});
       // RSVPs live in app_data (RLS blocks non-hosts from writing the event row)
       ad.filter(r=>r.kind==='rsvp').forEach(r=>applyRsvp(r.data,false));
+      // founder-signed rank grants (admin level/prestige/master actions)
+      ad.filter(r=>r.kind==='rank'&&r.owner===FOUNDER_ID).forEach(r=>applyRank(r.data));
     }
     save();
   }catch(e){console.warn('shared load',e)}
@@ -2405,6 +2601,7 @@ function cloudRealtime(){
       if(view.name==='prestige'&&ptab==='admin')render();}}
     else if(r.kind==='flag'){if(d&&d.listing){S.flags=S.flags||{};S.flags[d.listing]={by:d.by,t:d.t};if(view.name==='listing'||(world==='market'&&tab==='market'))render();}}
     else if(r.kind==='rsvp'){applyRsvp(d,false);if(world==='market'&&tab==='events')render();}
+    else if(r.kind==='rank'){if(r.owner===FOUNDER_ID){applyRank(d);if(d.id===S.me)notify(d.master?'👑 You were made a MASTER':'Your rank was updated by the founder');render();}}
   }).subscribe();
   sb.channel('pl2').on('postgres_changes',{event:'INSERT',schema:'public',table:'listings'},p=>{
     const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);if(world==='market'&&tab==='market'&&view.name==='tab')render();}
