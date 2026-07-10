@@ -15,6 +15,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PitLane">
+<meta name="description" content="PitLane — the marketplace built by the racing scene, for the racing scene. Cars, bikes, quads, skis, engines. Buy it. Build it. Race it.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PitLane">
+<meta property="og:title" content="PitLane — The Racing Marketplace">
+<meta property="og:description" content="Cars, bikes, quads, skis, engines — if it doesn't rev, it doesn't list. Real names, real photos, real builds. Buy it. Build it. Race it.">
+<meta property="og:url" content="https://robert30z.github.io/PitLane/">
+<meta property="og:image" content="https://robert30z.github.io/PitLane/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PitLane — The Racing Marketplace">
+<meta name="twitter:description" content="Cars, bikes, quads, skis, engines — if it doesn't rev, it doesn't list. Buy it. Build it. Race it.">
+<meta name="twitter:image" content="https://robert30z.github.io/PitLane/og.png">
 <style>
 /* ============ PITLANE DESIGN TOKENS — night-race world, dark by design ============ */
 :root{
@@ -699,7 +712,8 @@ function vWelcome(){
   (CLOUD?'<button class="btn ghost" style="margin-top:10px" onclick="go(\'auth-login\')">Log in</button>'
         :'<button class="btn ghost" style="margin-top:10px" onclick="demoLogin()">Enter as Trippzy — Founder</button>')+
   '<button class="btn line" style="margin-top:10px" onclick="guestBrowse()">Just looking — browse the market</button>'+
-  '<p class="hint" style="text-align:center;margin-top:22px">'+(CLOUD?'Live · real accounts · your data syncs everywhere':'Local demo — data lives on this device only')+'</p></div>';
+  '<p class="hint" style="text-align:center;margin-top:22px">'+(CLOUD?'Live · real accounts · your data syncs everywhere':'Local demo — data lives on this device only')+
+  ' · <span style="text-decoration:underline;cursor:pointer" onclick="showTerms()">Terms &amp; Privacy</span></p></div>';
 }
 function vLogin(){
   return '<div class="auth"><div class="glow"></div>'+
@@ -758,7 +772,7 @@ function vSignup(){
   '<div class="field"><label for="f_nick">Nickname — your scene name</label><input id="f_nick" placeholder="e.g. NightShift, BoostedMarv" maxlength="20"></div>'+
   '<div class="field"><label for="f_email">Email</label><input id="f_email" type="email" autocomplete="email"><p class="hint">'+(typeof CLOUD!=='undefined'&&CLOUD?'We\'ll email you a confirmation link.':'We\'ll send a 6-digit code to verify it.')+'</p></div>'+
   '<div class="field"><label for="f_pw">Password</label><div class="pwwrap"><input id="f_pw" type="password" autocomplete="new-password"><button type="button" class="eye" onclick="togglePw(\'f_pw\',this)" aria-label="Show password">👁</button></div></div>'+
-  '<label class="rules"><input type="checkbox" id="f_rules"><span>I agree to the <b>PitLane Rules</b>: real photos of my actual vehicle, accurate title status, lawful sales only, and community events at sanctioned venues. Listings that break the rules get black-flagged.</span></label>'+
+  '<label class="rules"><input type="checkbox" id="f_rules"><span>I agree to the <b>PitLane Rules</b>: real photos of my actual vehicle, accurate title status, lawful sales only, and community events at sanctioned venues. Listings that break the rules get black-flagged. I accept the <b style="color:var(--red-hot);cursor:pointer" onclick="event.preventDefault();showTerms()">Terms of Service &amp; Privacy Policy</b>.</span></label>'+
   '<button class="btn" onclick="signup()">'+(typeof CLOUD!=='undefined'&&CLOUD?'Create account':'Send verification code')+'</button></div>';
 }
 async function signup(){
@@ -849,6 +863,14 @@ function vMarket(){
     :'<div class="empty">Nothing in this lane yet.<br>Be the first to list.</div>');
 }
 function matchCount(s){const q=(s.q||'').toLowerCase();return S.listings.filter(l=>(s.cat==='all'||l.cat===s.cat)&&(!q||l.title.toLowerCase().includes(q)||l.model.toLowerCase().includes(q))).length}
+function toggleFav(lid){
+  if(needAuth('Create your free account to save rides you like.'))return;
+  const u=S.users[S.me];u.favs=u.favs||[];
+  const i=u.favs.indexOf(lid);
+  if(i<0){u.favs.unshift(lid);toast('Saved to your watchlist ❤️');}
+  else{u.favs.splice(i,1);toast('Removed from watchlist.');}
+  save();render();
+}
 function saveSearch(){if(needAuth('Create your free account to save searches.'))return;const u=S.users[S.me];u.saved=u.saved||[];const s={q:S._q||'',cat:S._cat||'all'};
   if(u.saved.some(x=>x.q===s.q&&x.cat===s.cat))return toast('Already saved.');
   u.saved.unshift(s);save();render();toast('Search saved. You\'ll see match counts here 🔖');}
@@ -856,7 +878,9 @@ function runSaved(i){const s=S.users[S.me].saved[i];S._q=s.q;S._cat=s.cat;render
 function rmSaved(i){S.users[S.me].saved.splice(i,1);save();render();toast('Saved search removed.');}
 function cardHTML(l){
   const u=S.users[l.seller]||{nick:'?',verified:false};
+  const fav=S.me&&(((S.users[S.me]||{}).favs)||[]).includes(l.id);
   return '<button class="lcard" style="'+(l.sold?'opacity:.55':'')+'" onclick="go(\'listing\',\''+esc(l.id)+'\')"><div class="ph">'+art(l)+
+  (S.me&&l.seller!==S.me?'<span onclick="event.stopPropagation();toggleFav(\''+esc(l.id)+'\')" style="position:absolute;top:8px;left:8px;font-size:17px;text-shadow:0 1px 6px rgba(0,0,0,.85);cursor:pointer">'+(fav?'❤️':'🤍')+'</span>':'')+
   (l.sold?'<span class="badge" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;letter-spacing:.08em">SOLD</span>'
     :(l.boosted?'<span class="badge f" style="position:absolute;top:8px;right:8px">★ BOOST</span>':''))+'</div>'+
   '<div class="info"><div class="price">'+fmt(l.price)+'</div><h3>'+esc(l.title)+'</h3>'+
@@ -979,6 +1003,7 @@ function vListing(id){
       :'<button class="btn amber" onclick="boostModal(\''+l.id+'\')">★ Boost this listing</button>')
     :'<button class="btn" onclick="msgSeller(\''+l.id+'\')">Message '+esc(u.nick)+'</button>')+
   '</div>'+
+  (!mine&&S.me?'<button class="btn line" style="margin-top:10px" onclick="toggleFav(\''+l.id+'\')">'+((((S.users[S.me]||{}).favs)||[]).includes(l.id)?'❤️ On your watchlist — tap to remove':'🤍 Add to watchlist')+'</button>':'')+
   (mine?'<button class="btn '+(l.sold?'ghost':'line')+'" style="margin-top:10px" onclick="markSold(\''+l.id+'\')">'+(l.sold?'✓ Marked SOLD — tap to relist':'Mark as sold')+'</button>':'')+
   '<button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
 }
@@ -1287,7 +1312,9 @@ function sendMsg(tid){
   const msg={id:'dm'+Date.now()+Math.random().toString(36).slice(2,5),from:S.me,text:txt,t:hh+':'+mm+' '+ap,ts:Date.now()};
   t.msgs.push(msg);
   save();award('first_msg');render();
-  if(CLOUD){cloudPut('dm',msg.id,Object.assign({thread:t.id,listing:t.listing,users:t.users},msg));return;}
+  if(CLOUD){cloudPut('dm',msg.id,Object.assign({thread:t.id,listing:t.listing,users:t.users},msg));
+    const rcpt=(t.users||[]).find(u=>u!==S.me);
+    sendPush(rcpt,'💬 '+((S.users[S.me]||{}).nick||'New message'),txt.slice(0,90));return;}
   // demo-only canned reply — never fires against real accounts
   const other=t.users.find(u=>u!==S.me);
   if(other&&S.users[other]&&!t._replied){t._replied=true;
@@ -1356,6 +1383,8 @@ function vUser(uid,self){
   reviewsBlock(u,uid,self)+
   (self&&u.founder?'<div class="launchnote"><b>Founder account.</b> You run PitLane. Boosts, featured slots and verified tiers are all FREE during launch season — flip on pricing when the grid fills up.</div>':'')+
   (self?missionsHTML(u):'')+
+  (self&&(u.favs||[]).length?'<div class="shead"><h2>Watchlist</h2><span class="eyebrow">'+u.favs.length+' saved</span></div>'+
+    '<div class="grid">'+u.favs.map(id=>S.listings.find(l=>l.id===id)).filter(Boolean).map(cardHTML).join('')+'</div>':'')+
   '<div class="shead"><h2>'+(self?'Their listings':'Their listings').replace('Their',self?'My':'Their')+'</h2></div>'+
   (garage.length?'<div class="grid">'+garage.map(cardHTML).join('')+'</div>'
     :'<div class="empty">Empty garage — nothing listed yet.</div>')+
@@ -1393,7 +1422,8 @@ function submitReview(uid){
   const rv={from:S.me,fromNick:(S.users[S.me]||{}).nick||'',to:uid,stars:reviewStars,text:$('#rvtext').value.trim(),t:Date.now()};
   u.reviews=u.reviews.filter(r=>r.from!==S.me);u.reviews.unshift(rv);   // one review per reviewer — reposting updates it
   u.rating=u.reviews.reduce((a,r)=>a+r.stars,0)/u.reviews.length;
-  save();if(CLOUD)cloudPut('review',uid+':'+S.me,rv);
+  save();if(CLOUD){cloudPut('review',uid+':'+S.me,rv);
+    sendPush(uid,'★ New review',(rv.fromNick||'Someone')+' left you a '+rv.stars+'-star review');}
   document.querySelector('.overlay').remove();render();toast('Review posted. Trust built. ★');
 }
 function applyReview(d){ // attach a cloud review to its target + recompute rating
@@ -2269,7 +2299,9 @@ function joinPin(uid){
 function sendChallenge(uid){
   const ev=S.events.find(e=>e.id===$('#chv').value);
   const ch={id:'ch'+Date.now(),from:S.me,to:uid,venue:ev.title+' ('+ev.when+')',status:'pending',t:'Just now'};
-  S.challenges.push(ch);save();if(CLOUD)cloudPut('challenge',ch.id,ch);document.querySelector('.overlay').remove();render();
+  S.challenges.push(ch);save();if(CLOUD){cloudPut('challenge',ch.id,ch);
+    sendPush(uid,'🏁 Race challenge',((S.users[S.me]||{}).nick||'Someone')+' challenged you — settle it at '+ch.venue);}
+  document.querySelector('.overlay').remove();render();
   toast('Challenge sent to '+S.users[uid].nick+' — settle it at '+ev.title+' 🏁');
 }
 
@@ -2485,10 +2517,36 @@ function pushLocal(title,body){
 }
 function askPush(){
   try{if(!('Notification'in window))return;
+    if(Notification.permission==='granted'){enablePush();return;}
     if(Notification.permission==='default'&&!localStorage.getItem('pl_push_asked')){
       localStorage.setItem('pl_push_asked','1');
-      Notification.requestPermission().then(p=>{if(p==='granted')toast('🔔 Notifications on — you\'ll know when someone messages or challenges you.');});
+      Notification.requestPermission().then(p=>{if(p==='granted'){toast('🔔 Notifications on — you\'ll know when someone messages or challenges you.');enablePush();}});
     }
+  }catch(e){}
+}
+/* =================== REAL WEB PUSH (server-sent, works with the app closed) =================== */
+const PUSH_PUBKEY='BEbtuYyoyuPhuTxQXGhKLhRHT57m9ExsdzpIFfeN1zS6DmdO-31869Bw55qJqV6Z4MzTN3ZCxrFwwkHZihbKUpg';
+function _b64ToU8(s){const p='='.repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
+function _epHash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(16);}
+async function enablePush(){
+  try{
+    if(!CLOUD||!S.me||!('serviceWorker'in navigator)||!('PushManager'in window))return;
+    if(Notification.permission!=='granted')return;
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_b64ToU8(PUSH_PUBKEY)});
+    const j=sub.toJSON(),h=_epHash(j.endpoint||'');
+    if(localStorage.getItem('pl_push_sub')===S.me+':'+h)return;   // this device already registered
+    await cloudPut('push',S.me+':'+h,{id:S.me+':'+h,uid:S.me,sub:j,t:Date.now()});
+    localStorage.setItem('pl_push_sub',S.me+':'+h);
+  }catch(e){/* push is best-effort — user may have blocked it or the browser lacks FCM */}
+}
+async function sendPush(to,title,body,url){
+  try{
+    if(!CLOUD||!sb||!to||to===S.me)return;
+    const {data:{session}}=await sb.auth.getSession();if(!session)return;
+    fetch(SB_URL+'/functions/v1/push',{method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+session.access_token},
+      body:JSON.stringify({to,title,body:body||'',url:url||'https://robert30z.github.io/PitLane/'})}).catch(()=>{});
   }catch(e){}
 }
 function pNotifs(){
@@ -2498,6 +2556,42 @@ function pNotifs(){
   (ns.length?ns.map(n=>'<div class="card" style="padding:12px 14px;margin-bottom:8px"><div style="font-size:14px">'+esc(n.text)+'</div>'+
     '<div class="hint" style="margin-top:3px">'+new Date(n.t).toLocaleString()+'</div></div>').join('')
     :'<div class="empty">No notifications yet.</div>');
+}
+/* =================== TERMS OF SERVICE + PRIVACY =================== */
+const TERMS_VER='1.0 — July 9, 2026';
+function showTerms(){
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet" style="max-height:82vh;overflow-y:auto">'+
+  '<h2 class="disp" style="font-size:22px;margin-bottom:2px">Terms of Service &amp; Privacy</h2>'+
+  '<p class="hint" style="margin-bottom:12px">Version '+TERMS_VER+'</p>'+
+  '<div style="font-size:13px;line-height:1.55;color:#C6CDD9">'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">1 · What PitLane is.</b> PitLane is a venue that connects buyers and sellers of vehicles, parts and engines, and a community hub for motorsport events. <b>PitLane is not a party to any sale.</b> Every deal — price, payment, inspection, title transfer, delivery — happens directly between buyer and seller. We never hold your money or your title.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">2 · You deal at your own risk.</b> We don\'t inspect vehicles, verify titles, or guarantee any listing. Descriptions, photos and prices are the seller\'s alone. Meet in safe public places, verify the VIN and title in person, and use lawful payment methods. Any dispute is between the parties to the deal.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">3 · Your account.</b> Real first and last name are required; only your nickname is shown publicly. You\'re responsible for what happens under your login. One person per account. We can suspend or remove accounts that break these terms.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">4 · Listings rules.</b> Only things that rev: vehicles, powersports, watercraft, parts, engines. Real photos of the actual item, honest condition, accurate title status. No stolen goods, no VIN tampering, no odometer fraud, no counterfeit parts. Violations get black-flagged and reported where the law requires.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">5 · Events &amp; community.</b> All PitLane events happen at <b>sanctioned venues</b> — tracks, strips, private property with permission. PitLane must not be used to organize, coordinate or promote street racing or any illegal activity. Race challenges in the app are for sanctioned events only. You participate in motorsport at your own risk.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">6 · Content you post.</b> You own your photos and posts. By posting you give PitLane a license to display them in the app. Don\'t post other people\'s content, private info, or anything unlawful, hateful or deceptive. We can remove content at our discretion.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">7 · Payments.</b> Optional paid features (Pit Pass, boosts, merch) are processed by Stripe — card details never touch PitLane. Vehicle transactions are never processed through PitLane.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">8 · Privacy — what we store.</b> Your name, email, nickname, and the profile/garage/listing data you create, hosted on Supabase (US servers). Your email is never displayed publicly and is never sold. Map location is shared only while you toggle visibility on. Push notifications store a device token you can revoke by disabling notifications. A local copy of app data lives in your browser for offline use.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">9 · Privacy — your controls.</b> You can edit your profile, hide your map pin, and delete your listings any time. To delete your account and data entirely, contact the founder in-app or at the support email. We keep what the law requires us to keep.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">10 · No warranty.</b> PitLane is provided "as is", free at launch, with no warranties of any kind. To the maximum extent allowed by law, PitLane and its owner are not liable for any damages arising from deals, events, or use of the app — including loss of money, property, data, or anything else.</p>'+
+
+  '<p style="margin-bottom:8px"><b style="color:#EEF1F6">11 · Changes.</b> We may update these terms; the version date above changes when we do. Using PitLane after a change means you accept it.</p>'+
+
+  '<p style="margin-bottom:2px"><b style="color:#EEF1F6">12 · Law.</b> These terms are governed by the laws of the Commonwealth of Puerto Rico and applicable U.S. federal law.</p>'+
+  '</div>'+
+  '<button class="btn" style="margin-top:14px" onclick="this.closest(\'.overlay\').remove()">Got it</button></div>';
+  document.body.appendChild(ov);
 }
 /* =================== REAL GPS =================== */
 function useGPS(){
@@ -2577,6 +2671,8 @@ async function cloudPut(kind,id,obj){if(!CLOUD)return;try{await sb.from('app_dat
 async function cloudDel(kind,id){if(!CLOUD)return;try{await sb.from('app_data').delete().eq('id',kind+':'+id);}catch(e){}}
 function cloudRealtime(){
   if(!CLOUD||!sb)return;
+  // login() re-calls this after a guest boot — supabase-js throws if we .on() an already-subscribed channel, so drop the old ones first
+  try{(sb.getChannels?sb.getChannels():[]).filter(c=>c.topic==='realtime:pl'||c.topic==='realtime:pl2').forEach(c=>sb.removeChannel(c));}catch(e){}
   try{sb.channel('pl').on('postgres_changes',{event:'*',schema:'public',table:'app_data'},p=>{
     if(p.eventType==='DELETE'){const oid=(p.old&&p.old.id)||'';const ci=oid.indexOf(':');
       if(ci<0)return;const kind=oid.slice(0,ci),rid=oid.slice(ci+1);
@@ -2604,7 +2700,13 @@ function cloudRealtime(){
     else if(r.kind==='rank'){if(r.owner===FOUNDER_ID){applyRank(d);if(d.id===S.me)notify(d.master?'👑 You were made a MASTER':'Your rank was updated by the founder');render();}}
   }).subscribe();
   sb.channel('pl2').on('postgres_changes',{event:'INSERT',schema:'public',table:'listings'},p=>{
-    const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);if(world==='market'&&tab==='market'&&view.name==='tab')render();}
+    const d=p.new&&p.new.data;if(d&&!S.listings.some(l=>l.id===d.id)){S.listings.unshift(d);
+      // saved-search alert: a fresh listing that matches one of my saved searches
+      if(S.me&&d.seller!==S.me){const u=S.users[S.me]||{};
+        const hit=(u.saved||[]).find(s=>(s.cat==='all'||d.cat===s.cat)&&(!s.q||((d.title||'')+' '+(d.model||'')).toLowerCase().includes(s.q.toLowerCase())));
+        if(hit){notify('🔖 New match for "'+(hit.q||hit.cat)+'": '+(d.title||'')+' — '+fmt(d.price));renderNotifDot();
+          pushLocal('Saved search match 🔖',(d.title||'')+' · '+fmt(d.price));}}
+      if(world==='market'&&tab==='market'&&view.name==='tab')render();}
   }).subscribe();
   }catch(e){console.warn('realtime',e)}
 }
