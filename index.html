@@ -1005,7 +1005,58 @@ function vListing(id){
   '</div>'+
   (!mine&&S.me?'<button class="btn line" style="margin-top:10px" onclick="toggleFav(\''+l.id+'\')">'+((((S.users[S.me]||{}).favs)||[]).includes(l.id)?'❤️ On your watchlist — tap to remove':'🤍 Add to watchlist')+'</button>':'')+
   (mine?'<button class="btn '+(l.sold?'ghost':'line')+'" style="margin-top:10px" onclick="markSold(\''+l.id+'\')">'+(l.sold?'✓ Marked SOLD — tap to relist':'Mark as sold')+'</button>':'')+
+  '<button class="btn line" style="margin-top:10px" onclick="shareListing(\''+l.id+'\')">🔗 Share this listing</button>'+
   '<button class="btn line" style="margin-top:10px" onclick="reportModal(\''+l.id+'\')">Report listing</button>';
+}
+
+/* ---- share a listing (turns every listing into distribution) ---- */
+function listingURL(l){return SITE+'?l='+encodeURIComponent(l.id)}
+function shareListing(lid){
+  const l=S.listings.find(x=>x.id===lid);if(!l)return;
+  const url=listingURL(l),mine=l.seller===S.me;
+  const blurb=(mine?'Vendo: ':'')+l.title+' — '+fmt(l.price)+' · '+l.loc+'\nFotos, VIN y specs completos en PitLane:\n'+url;
+  const ov=document.createElement('div');ov.className='overlay';ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  ov.innerHTML='<div class="sheet"><h2 class="disp" style="font-size:20px">Share this listing</h2>'+
+  '<p class="hint" style="margin:8px 0 12px">Post it in a Facebook group, a WhatsApp chat or your IG story. Anyone who taps it lands straight on this listing — no sign-in needed.</p>'+
+  '<div class="field"><input id="shurl" value="'+esc(url)+'" readonly onclick="this.select()"></div>'+
+  '<button class="btn amber" onclick="copyShare(\''+esc(url).replace(/'/g,"\\'")+'\')">Copy link</button>'+
+  '<button class="btn" style="margin-top:8px" onclick="waShare('+JSON.stringify(blurb).replace(/"/g,'&quot;')+')">💬 Send on WhatsApp</button>'+
+  '<button class="btn ghost" style="margin-top:8px" onclick="copyShare('+JSON.stringify(blurb).replace(/"/g,'&quot;')+')">📋 Copy text + link (for FB groups)</button>'+
+  '<button class="btn ghost" style="margin-top:8px" onclick="listingCard(\''+lid+'\')">📸 Save story card</button>'+
+  '<button class="btn line" style="margin-top:8px" onclick="this.closest(\'.overlay\').remove()">Close</button></div>';
+  document.body.appendChild(ov);
+}
+function waShare(text){window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
+function listingCard(lid){
+  const l=S.listings.find(x=>x.id===lid);if(!l)return;
+  const c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,1080,1350);g.addColorStop(0,'#161a21');g.addColorStop(1,'#05070a');
+  x.fillStyle=g;x.fillRect(0,0,1080,1350);
+  x.fillStyle='#E8362D';x.fillRect(0,0,1080,16);
+  const draw=()=>{
+    x.fillStyle='rgba(5,7,10,.55)';x.fillRect(0,690,1080,660);
+    x.font='italic 800 52px "Segoe UI",sans-serif';x.fillStyle='#EEF1F6';x.fillText('PIT',80,120);
+    x.fillStyle='#E8362D';x.fillText('LANE',80+x.measureText('PIT').width,120);
+    x.fillStyle='#3DD68C';x.font='800 96px "Segoe UI",sans-serif';x.fillText(fmt(l.price),80,860);
+    x.fillStyle='#EEF1F6';x.font='700 52px "Segoe UI",sans-serif';
+    const t=l.title.length>26?l.title.slice(0,25)+'…':l.title;x.fillText(t,80,940);
+    x.fillStyle='#8B94A6';x.font='500 40px "Segoe UI",sans-serif';x.fillText(l.loc,80,1005);
+    if(!l.cat||l.cat!=='parts'){
+      x.fillStyle='#C6CDD9';x.font='600 38px "Segoe UI",sans-serif';
+      x.fillText((l.miles?l.miles.toLocaleString()+' mi':'')+(l.titleStatus?'  ·  '+String(l.titleStatus).toUpperCase()+' TITLE':''),80,1075);
+    }
+    x.fillStyle='#F2B33D';x.font='700 34px "Segoe UI",sans-serif';
+    x.fillText('6 FOTOS REALES · VIN · SPECS COMPLETOS',80,1180);
+    x.fillStyle='#8B94A6';x.font='500 34px "Segoe UI",sans-serif';x.fillText('robert30z.github.io/PitLane',80,1290);
+    try{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='pitlane-'+String(l.id).slice(0,8)+'.png';a.click();
+      toast('Story card saved 📸');}catch(e){toast('Could not save card here.')}
+  };
+  const src=(l.photos&&(l.photos[SHOTS[0]]||l.photos[Object.keys(l.photos)[0]]))||'';
+  if(src){const im=new Image();im.crossOrigin='anonymous';
+    im.onload=()=>{const r=Math.max(1080/im.width,900/im.height),w=im.width*r,h=im.height*r;
+      x.drawImage(im,(1080-w)/2,0,w,h);draw()};
+    im.onerror=draw;im.src=src;}
+  else draw();
 }
 let _viewed={};
 function bumpView(l){
@@ -2768,14 +2819,24 @@ async function cloudBoot(){
       tab='market';if(view.name!=='auth-reset')view={name:'tab'};openDeep&&openDeep();
     }
   }catch(e){console.warn('cloudBoot',e)}
+  deepSettled=true;openDeep();   // shared listing/profile links resolve once cloud data has landed
   render();
 }
 
 /* =================== BOOT =================== */
 let world='market',ptab='home',unlocked=false;
 let deepU=new URLSearchParams(location.search).get('u');
-function openDeep(){if(!deepU)return false;const du=Object.values(S.users).find(x=>x.profileNo===deepU);deepU=null;
-  if(du){world='market';view={name:'user',arg:du.id};return true}return false}
+let deepL=new URLSearchParams(location.search).get('l');
+let deepSettled=false;   // boot resets view several times; keep the target until cloud data has landed
+function openDeep(){
+  let hit=false;
+  if(deepL){const dl=S.listings.find(x=>String(x.id)===String(deepL));
+    if(dl){world='market';view={name:'listing',arg:dl.id};hit=true}}
+  if(!hit&&deepU){const du=Object.values(S.users).find(x=>x.profileNo===deepU);
+    if(du){world='market';view={name:'user',arg:du.id};hit=true}}
+  if(deepSettled){deepL=null;deepU=null}   // only forget it once boot can no longer clobber the view
+  return hit;
+}
 if(window.supabase&&window.supabase.createClient){
   // CLOUD MODE — real accounts + shared data
   cloudReady();
@@ -2794,6 +2855,7 @@ if(window.supabase&&window.supabase.createClient){
 }else{
   // LOCAL DEMO MODE (offline / artifact preview)
   load();
+  deepSettled=true;
   if(S.me){tab='market';view={name:'tab'};openDeep();}
   render();
 }
